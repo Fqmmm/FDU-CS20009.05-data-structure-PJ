@@ -56,20 +56,31 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - 使用邻接表表示：`unordered_map<string, vector<Edge>>`
 - 节点名称为中文地名（UTF-8编码）
 - `from_csv()`：从CSV文件加载路网，支持动态表头解析
+  - **三遍处理**：第一遍计算所有边的time字段，第二遍计算归一化范围，第三遍计算balanced_score
+  - 预计算Edge的time和balanced_score字段，避免运行时重复计算
 - `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，返回PathResult
-  - `WeightMode::TIME`：时间最短（BPR计算的通行时间）
+  - `WeightMode::TIME`：时间最短（使用预计算的通行时间）
   - `WeightMode::DISTANCE`：距离最短（道路长度）
-  - `WeightMode::BALANCED`：综合推荐（归一化加权平均）
+  - `WeightMode::BALANCED`：综合推荐（使用预计算的归一化加权平均）
   - 返回`PathResult`结构体，包含路径和对应代价值
-- `calculate_weight_range()`：计算所有边的时间和距离范围，用于归一化
-- `calculate_edge_weight()`：根据权重模式计算边的权重
+  - **cost字段语义**：TIME模式返回的cost是时间（秒），DISTANCE模式返回的cost是距离（米），BALANCED模式返回的cost是综合评分
 - `calculate_path_cost()`：计算给定路径在指定权重模式下的总代价
+- **私有成员**：
+  - `WeightRange`（嵌套结构体）：存储时间和距离的min/max范围，用于归一化
+  - `calculate_weight_range()`：计算所有边的时间和距离范围
 - **PathResult结构体**：包含路径节点列表和代价值
 
 **2. Edge类（Edge.h/cpp）**
-- 表示道路，包含属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
-- `calculate_weight()`：使用BPR拥堵函数计算通行时间
-- BPR公式：T = T₀ × [1 + α × (V/C)^β]，其中T₀为自由流时间，V/C为流量容量比
+- **设计理念**：纯数据容器，不包含计算逻辑（计算逻辑分离到util模块）
+- **成员变量**：
+  - 基本属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
+  - 预计算字段：
+    - `time`：通行时间（秒）= 自由流时间 × 拥堵系数，在Graph::from_csv()中计算
+    - `balanced_score`：综合评分 = α × normalized_time + (1-α) × normalized_distance，在Graph::from_csv()中计算
+- `get_weight(WeightMode)`：根据权重模式返回对应的预计算权重值
+  - TIME模式返回time
+  - DISTANCE模式返回length
+  - BALANCED模式返回balanced_score
 
 **3. Config（config.h/cpp）**
 - **BPRConfig**：拥堵建模的全局参数
@@ -110,6 +121,11 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `.cache/paths/*.cache`：具体的路径缓存文件
 
 **5. util.h/cpp（工具函数模块）**
+- **BPR拥堵函数**：
+  - `calculate_bpr_congestion_factor()`：计算拥堵系数 = 1 + α × (V/C)^β
+  - `calculate_free_flow_time()`：计算自由流通行时间 = 距离 / 速度
+  - `calculate_travel_time()`：计算实际通行时间 = 自由流时间 × 拥堵系数
+  - BPR公式：T = T₀ × [1 + α × (V/C)^β]，其中T₀为自由流时间，V/C为流量容量比
 - **字符串工具**：
   - `trim()`：移除字符串首尾空白字符
 - **文件操作工具**：
@@ -118,7 +134,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - **输出工具**：
   - `print_usage()`：打印命令行使用说明
   - `print_single_path()`：打印单条路径（带装饰边框）
-  - `print_multi_paths()`：打印所有三种路径
+  - `print_multi_paths()`：打印所有三种路径及其时间和距离指标
   - `print_cache_statistics()`：打印缓存统计信息
 
 **6. main.cpp**
@@ -129,6 +145,11 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - 调用`process_map()`处理每个地图文件
 - **核心函数**：
   - `process_map()`：处理单个地图文件，执行缓存查询/路径计算/结果输出
+  - **cost计算优化**：充分利用PathResult.cost字段，减少冗余计算
+    - TIME路径：直接使用time_result.cost作为时间，只需额外计算距离
+    - DISTANCE路径：直接使用distance_result.cost作为距离，只需额外计算时间
+    - BALANCED路径：需要分别计算时间和距离（cost是综合评分）
+    - 将6次calculate_path_cost()调用优化为4次
 
 ### 数据流
 
@@ -170,14 +191,16 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - 到达目标节点时提前终止
 - 通过predecessors映射重建路径
 - 无路径时返回空vector
+- **权重获取**：调用`edge.get_weight(mode)`获取预计算的权重值
 - **多种权重模式**：
-  - TIME模式：直接使用edge.weight（BPR计算的通行时间）
-  - DISTANCE模式：直接使用edge.length（道路长度）
-  - BALANCED模式：归一化 + 加权平均
-    - 步骤1：扫描所有边，计算时间和距离的min/max
-    - 步骤2：归一化 = (value - min) / (max - min)，映射到[0, 1]
-    - 步骤3：weighted_score = α × norm_time + (1-α) × norm_distance
-    - 默认权重：α=0.6（时间），1-α=0.4（距离）
+  - TIME模式：使用edge.time（预计算的BPR通行时间）
+  - DISTANCE模式：使用edge.length（道路长度）
+  - BALANCED模式：使用edge.balanced_score（预计算的归一化加权平均）
+- **三遍预计算**（在Graph::from_csv()中）：
+  - 第一遍：计算所有edge.time = 自由流时间 × 拥堵系数
+  - 第二遍：计算所有边的时间和距离范围（min/max），用于归一化
+  - 第三遍：计算所有edge.balanced_score = α × normalized_time + (1-α) × normalized_distance
+  - 默认权重：α=0.6（时间），1-α=0.4（距离）
 
 **编码处理：**
 - 所有中文文本使用UTF-8编码
