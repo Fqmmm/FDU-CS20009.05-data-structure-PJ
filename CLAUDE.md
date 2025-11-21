@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **编译：**
 ```bash
-g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.exe
+g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o pathfinder.exe
 ```
 
 **基本运行：**
@@ -105,13 +105,26 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
   - `.cache/cache_index.txt`：缓存索引文件（LRU顺序和元数据）
   - `.cache/paths/*.cache`：具体的路径缓存文件
 
-**5. main.cpp**
+**5. util.h/cpp（工具函数模块）**
+- **字符串工具**：
+  - `trim()`：移除字符串首尾空白字符
+- **文件操作工具**：
+  - `find_test_files()`：在测试用例目录中查找demand.txt和map_*.csv文件
+  - `read_demand()`：从demand文件读取起点和终点
+- **输出工具**：
+  - `print_usage()`：打印命令行使用说明
+  - `print_single_path()`：打印单条路径（带装饰边框）
+  - `print_multi_paths()`：打印所有三种路径
+  - `print_cache_statistics()`：打印缓存统计信息
+
+**6. main.cpp**
+- 程序入口和主流程控制
 - 命令行参数解析（--test_path, --no_cache, --clear-cache）
-- 测试用例文件发现（查找demand.txt和map_*.csv文件）
 - Windows控制台UTF-8编码设置（`chcp 65001`）
-- 缓存集成和统计信息输出
-- 按顺序处理多个时变地图
-- 多路径输出：为每个查询同时显示时间最短、距离最短、综合推荐三种路径
+- 缓存对象创建和生命周期管理
+- 调用`process_map()`处理每个地图文件
+- **核心函数**：
+  - `process_map()`：处理单个地图文件，执行缓存查询/路径计算/结果输出
 
 ### 数据流
 
