@@ -1,0 +1,5 @@
+# PathCache Index File
+max_size: 50
+entry_count: 1
+lru_order: 68d3e061da94ddf2
+entry: 68d3e061da94ddf2|上海世纪公园|复旦大学（邯郸校区）|Test_Cases/test_cases/shanghai_test_cases/case1_simple\map_1200.csv|-4678677486000000000|1151|.cache/paths/68d3e061da94ddf2.cache|1763705109294362500

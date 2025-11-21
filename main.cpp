@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <algorithm>
 #include "Graph.h"
+#include "Cache.h"
+#include "config.h"
 
 const std::string start_prefix = "起点：";
 const std::string end_prefix = "终点：";
@@ -100,8 +102,16 @@ bool read_demand(const std::string &filename, std::string &start, std::string &e
 // 打印使用说明
 void print_usage()
 {
-    std::cout << "Usage: .\\pathfinder --test_path <path_to_test_case_directory>" << std::endl;
-    std::cout << "Example: .\\pathfinder --test_path Test_Cases/test_cases/shanghai_test_cases/case1_simple" << std::endl;
+    std::cout << "Usage: .\\pathfinder --test_path <path_to_test_case_directory> [--no_cache]" << std::endl;
+    std::cout << "       .\\pathfinder --clear-cache" << std::endl;
+    std::cout << "\nOptions:" << std::endl;
+    std::cout << "  --test_path <dir>  Specify the test case directory (required)" << std::endl;
+    std::cout << "  --no_cache         Disable cache and force recalculation (optional)" << std::endl;
+    std::cout << "  --clear-cache      Clear all cached results and exit" << std::endl;
+    std::cout << "\nExamples:" << std::endl;
+    std::cout << "  .\\pathfinder --test_path Test_Cases/test_cases/shanghai_test_cases/case1_simple" << std::endl;
+    std::cout << "  .\\pathfinder --test_path Test_Cases/test_cases/shanghai_test_cases/case1_simple --no_cache" << std::endl;
+    std::cout << "  .\\pathfinder --clear-cache" << std::endl;
 }
 
 // 打印路径结果
@@ -123,12 +133,39 @@ void print_path(const std::vector<std::string> &path)
 }
 
 // 处理单个地图文件，查找并打印最短路径
-void process_map(const std::string &map_file, const std::string &start_node, const std::string &end_node)
+void process_map(const std::string &map_file, const std::string &start_node, const std::string &end_node,
+                 PathCache *cache, bool use_cache)
 {
     std::cout << "\n========================================================" << std::endl;
     std::cout << "Processing map: " << map_file << std::endl;
     std::cout << "========================================================" << std::endl;
 
+    std::vector<std::string> path;
+
+    // 尝试从缓存获取（如果启用缓存）
+    if (use_cache && cache != nullptr)
+    {
+        path = cache->get(start_node, end_node, map_file);
+        if (!path.empty())
+        {
+            std::cout << "[Cache Hit] Using cached result." << std::endl;
+            // 计算缓存的路径时间（需要重新加载地图来计算）
+            // 为了简单起见，这里只显示路径，不重新计算时间
+            print_path(path);
+            std::cout << "\n\n";
+            return;
+        }
+        else
+        {
+            std::cout << "[Cache Miss] Computing shortest path..." << std::endl;
+        }
+    }
+    else if (!use_cache)
+    {
+        std::cout << "[Cache Disabled] Computing shortest path..." << std::endl;
+    }
+
+    // 缓存未命中或禁用缓存，执行Dijkstra算法
     Graph city_map;
     if (!city_map.from_csv(map_file))
     {
@@ -136,7 +173,13 @@ void process_map(const std::string &map_file, const std::string &start_node, con
         return;
     }
 
-    std::vector<std::string> path = city_map.find_shortest_path(start_node, end_node);
+    path = city_map.find_shortest_path(start_node, end_node);
+
+    // 保存到缓存（如果启用缓存且路径非空）
+    if (use_cache && cache != nullptr && !path.empty())
+    {
+        cache->put(start_node, end_node, map_file, path);
+    }
 
     print_path(path);
 
@@ -150,13 +193,85 @@ int main(int argc, char *argv[])
     system("chcp 65001 > nul");
 #endif
 
-    if (argc != 3 || std::string(argv[1]) != "--test_path")
+    // 特殊处理：清空缓存命令
+    if (argc == 2 && std::string(argv[1]) == "--clear-cache")
+    {
+        std::cout << "Clearing all cached results..." << std::endl;
+
+        try
+        {
+            PathCache cache(CacheConfig::cache_dir, CacheConfig::max_size);
+            size_t entry_count = cache.get_entry_count();
+            cache.clear();
+
+            std::cout << "Cache cleared successfully!" << std::endl;
+            std::cout << "  Removed " << entry_count << " cache entries." << std::endl;
+            std::cout << "  Cache directory: " << CacheConfig::cache_dir << std::endl;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error while clearing cache: " << e.what() << std::endl;
+            return 1;
+        }
+
+        return 0;
+    }
+
+    // 解析命令行参数
+    if (argc < 3)
     {
         print_usage();
         return 1;
     }
 
-    std::filesystem::path case_path(argv[2]);
+    std::string test_path;
+    bool use_cache = true; // 默认启用缓存
+
+    // 解析所有参数
+    for (int i = 1; i < argc; i++)
+    {
+        std::string arg = argv[i];
+
+        if (arg == "--test_path")
+        {
+            if (i + 1 < argc)
+            {
+                test_path = argv[i + 1];
+                i++; // 跳过下一个参数（路径值）
+            }
+            else
+            {
+                std::cerr << "Error: --test_path requires a path argument" << std::endl;
+                print_usage();
+                return 1;
+            }
+        }
+        else if (arg == "--no_cache")
+        {
+            use_cache = false;
+        }
+        else if (arg == "--clear-cache")
+        {
+            std::cerr << "Error: --clear-cache cannot be used with other arguments" << std::endl;
+            print_usage();
+            return 1;
+        }
+        else if (arg != test_path)
+        {
+            std::cerr << "Error: Unknown argument: " << arg << std::endl;
+            print_usage();
+            return 1;
+        }
+    }
+
+    if (test_path.empty())
+    {
+        std::cerr << "Error: --test_path is required" << std::endl;
+        print_usage();
+        return 1;
+    }
+
+    std::filesystem::path case_path(test_path);
     if (!std::filesystem::is_directory(case_path))
     {
         std::cerr << "Error: Provided path is not a valid directory: " << case_path.string() << std::endl;
@@ -179,10 +294,35 @@ int main(int argc, char *argv[])
     }
     std::cout << "Request: Find path from \"" << start_node << "\" to \"" << end_node << "\"." << std::endl;
 
+    // 创建缓存对象（如果启用缓存）
+    PathCache *cache = nullptr;
+    if (use_cache)
+    {
+        cache = new PathCache(CacheConfig::cache_dir, CacheConfig::max_size);
+        std::cout << "\n[Cache] Cache enabled. Max entries: " << CacheConfig::max_size << std::endl;
+    }
+    else
+    {
+        std::cout << "\n[Cache] Cache disabled (--no_cache flag set)" << std::endl;
+    }
+
     // 处理每个地图文件
     for (const auto &map_file : map_files)
     {
-        process_map(map_file, start_node, end_node);
+        process_map(map_file, start_node, end_node, cache, use_cache);
+    }
+
+    // 输出缓存统计信息
+    if (use_cache && cache != nullptr)
+    {
+        std::cout << "========================================================" << std::endl;
+        std::cout << "Cache Statistics:" << std::endl;
+        std::cout << "  Hits: " << cache->get_hit_count() << std::endl;
+        std::cout << "  Misses: " << cache->get_miss_count() << std::endl;
+        std::cout << "  Entries: " << cache->get_entry_count() << std::endl;
+        std::cout << "========================================================" << std::endl;
+
+        delete cache;
     }
 
     return 0;
