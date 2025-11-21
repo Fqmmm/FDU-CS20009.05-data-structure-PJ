@@ -1,4 +1,5 @@
 #include "Graph.h"
+#include "util.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -131,15 +132,53 @@ bool Graph::from_csv(const std::string &filename)
     if (adj_list.empty())
     {
         std::cerr << "Warning: No valid edges loaded from " << filename << ". The graph is empty." << std::endl;
+        return true;
+    }
+
+    // 计算所有边的time字段
+    for (auto &node_pair : adj_list)
+    {
+        for (Edge &edge : node_pair.second)
+        {
+            edge.time = calculate_travel_time(edge.length, edge.speed_limit, edge.lanes, edge.current_vehicles);
+        }
+    }
+
+    // 计算时间和距离的范围用于归一化
+    WeightRange range = calculate_weight_range();
+
+    // 计算balanced_score
+    for (auto &node_pair : adj_list)
+    {
+        for (Edge &edge : node_pair.second)
+        {
+            double normalized_time = 0.0;
+            double normalized_distance = 0.0;
+
+            // 归一化
+            if (range.time_max > range.time_min)
+            {
+                normalized_time = (edge.time - range.time_min) / (range.time_max - range.time_min);
+            }
+
+            if (range.distance_max > range.distance_min)
+            {
+                normalized_distance = (edge.length - range.distance_min) / (range.distance_max - range.distance_min);
+            }
+
+            // 加权平均
+            edge.balanced_score = PathWeightConfig::time_factor * normalized_time +
+                                  PathWeightConfig::distance_factor * normalized_distance;
+        }
     }
 
     return true;
 }
 
 // 计算图中所有边的权重范围（用于归一化）
-WeightRange Graph::calculate_weight_range() const
+Graph::WeightRange Graph::calculate_weight_range() const
 {
-    WeightRange range;
+    Graph::WeightRange range;
     range.time_min = std::numeric_limits<double>::infinity();
     range.time_max = 0.0;
     range.distance_min = std::numeric_limits<double>::infinity();
@@ -151,7 +190,7 @@ WeightRange Graph::calculate_weight_range() const
         for (const Edge &edge : pair.second)
         {
             // 更新时间范围
-            double time = edge.weight;  // BPR计算的时间
+            double time = edge.time;  // 使用预计算的通行时间
             if (time < range.time_min)
                 range.time_min = time;
             if (time > range.time_max)
@@ -167,50 +206,6 @@ WeightRange Graph::calculate_weight_range() const
     }
 
     return range;
-}
-
-// 根据权重模式计算边的权重（支持归一化）
-double Graph::calculate_edge_weight(const Edge &edge, WeightMode mode, const WeightRange &range) const
-{
-    switch (mode)
-    {
-    case WeightMode::TIME:
-        // 时间最短：使用BPR计算的时间
-        return edge.weight;
-
-    case WeightMode::DISTANCE:
-        // 距离最短：使用道路长度
-        return edge.length;
-
-    case WeightMode::BALANCED:
-    {
-        // 综合推荐：归一化时间和距离的加权平均
-        double time = edge.weight;
-        double distance = edge.length;
-
-        // 归一化到[0, 1]区间
-        double normalized_time = 0.0;
-        double normalized_distance = 0.0;
-
-        // 避免除零错误
-        if (range.time_max > range.time_min)
-        {
-            normalized_time = (time - range.time_min) / (range.time_max - range.time_min);
-        }
-
-        if (range.distance_max > range.distance_min)
-        {
-            normalized_distance = (distance - range.distance_min) / (range.distance_max - range.distance_min);
-        }
-
-        // 加权平均
-        return PathWeightConfig::time_factor * normalized_time +
-               PathWeightConfig::distance_factor * normalized_distance;
-    }
-
-    default:
-        return edge.weight;
-    }
 }
 
 // 查找最短路径
@@ -229,13 +224,6 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
     {
         std::cerr << "Error: End node '" << end << "' not found in graph." << std::endl;
         return result;
-    }
-
-    // 计算权重范围（用于归一化）
-    WeightRange range;
-    if (mode == WeightMode::BALANCED)
-    {
-        range = calculate_weight_range();
     }
 
     // 定义优先队列的元素类型: <距离, 节点名>
@@ -283,8 +271,8 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
             for (const Edge &edge : adj_list.at(current_node))
             {
                 std::string neighbor = edge.destination;
-                // 根据模式计算边的权重
-                double edge_weight = calculate_edge_weight(edge, mode, range);
+                // 根据模式获取边的权重
+                double edge_weight = edge.get_weight(mode);
                 double new_dist = current_dist + edge_weight;
 
                 if (new_dist < distances[neighbor])
@@ -335,13 +323,6 @@ double Graph::calculate_path_cost(const std::vector<std::string> &path, WeightMo
         return 0.0; // 路径太短，无法计算
     }
 
-    // 计算权重范围（用于归一化，如果mode是BALANCED）
-    WeightRange range;
-    if (mode == WeightMode::BALANCED)
-    {
-        range = calculate_weight_range();
-    }
-
     double total_cost = 0.0;
 
     // 遍历路径中的每条边
@@ -358,7 +339,7 @@ double Graph::calculate_path_cost(const std::vector<std::string> &path, WeightMo
             {
                 if (edge.destination == to)
                 {
-                    total_cost += calculate_edge_weight(edge, mode, range);
+                    total_cost += edge.get_weight(mode);
                     edge_found = true;
                     break;
                 }

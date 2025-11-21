@@ -7,15 +7,6 @@
 #include "Edge.h"
 #include "config.h"
 
-// 权重范围结构体（用于归一化）
-struct WeightRange
-{
-    double time_min;
-    double time_max;
-    double distance_min;
-    double distance_max;
-};
-
 // 路径结果结构体（包含路径和代价）
 struct PathResult
 {
@@ -43,16 +34,22 @@ public:
     // 返回: 路径的总代价，如果路径无效返回0
     double calculate_path_cost(const std::vector<std::string> &path, WeightMode mode);
 
-    // 计算图中所有边的权重范围（用于归一化）
-    WeightRange calculate_weight_range() const;
-
 private:
+    // 权重范围结构体（用于归一化）
+    struct WeightRange
+    {
+        double time_min;
+        double time_max;
+        double distance_min;
+        double distance_max;
+    };
+
     // 邻接表
     // key是地点的名字(string), value是所有从该地点出发的道路(vector of Edges)
     std::unordered_map<std::string, std::vector<Edge>> adj_list;
 
-    // 根据权重模式计算边的权重（支持归一化）
-    double calculate_edge_weight(const Edge &edge, WeightMode mode, const WeightRange &range) const;
+    // 计算图中所有边的权重范围（用于归一化）
+    WeightRange calculate_weight_range() const;
 };
 
 #endif 

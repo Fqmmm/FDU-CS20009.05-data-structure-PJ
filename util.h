@@ -26,4 +26,14 @@ void print_single_path(const std::string &title, const std::vector<std::string> 
 void print_multi_paths(const MultiPath &paths);
 void print_cache_statistics(PathCache *cache);
 
+// BPR拥堵函数
+// 计算拥堵系数：1 + α × (V/C)^β
+double calculate_bpr_congestion_factor(int current_vehicles, int lanes);
+
+// 计算自由流通行时间（秒）
+double calculate_free_flow_time(double length_meters, double speed_limit_kmh);
+
+// 计算通行时间（秒）= 自由流时间 × 拥堵系数
+double calculate_travel_time(double length_meters, double speed_limit_kmh, int lanes, int current_vehicles);
+
 #endif

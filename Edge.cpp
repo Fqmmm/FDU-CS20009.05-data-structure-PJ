@@ -1,37 +1,35 @@
 #include "Edge.h"
-#include "config.h"
-#include <cmath>
 
 Edge::Edge(const std::string& dest, double len, double spd_limit, int num_lanes, int vehicles)
     : destination(dest),
       length(len),
       speed_limit(spd_limit),
       lanes(num_lanes),
-      current_vehicles(vehicles)
+      current_vehicles(vehicles),
+      time(0.0),
+      balanced_score(0.0)
 {
-    weight = calculate_weight(); 
+    // time和balanced_score将在Graph::from_csv()中计算
 }
 
-// 使用BPR函数计算单条边的权重
-double Edge::calculate_weight() const
+// 根据权重模式获取边的权重
+double Edge::get_weight(WeightMode mode) const
 {
-    // 检查车道数或限速是否为0，避免除零错误
-    if (lanes <= 0 || speed_limit <= 0)
+    switch (mode)
     {
-        return std::numeric_limits<double>::infinity();
+    case WeightMode::TIME:
+        // 时间最短：使用预计算的时间
+        return time;
+
+    case WeightMode::DISTANCE:
+        // 距离最短：使用道路长度
+        return length;
+
+    case WeightMode::BALANCED:
+        // 综合推荐：使用预计算的综合评分
+        return balanced_score;
+
+    default:
+        return time;
     }
-
-    // 计算自由流通行时间（无拥堵时的理论通行时间）
-    double speed_mps = speed_limit * 1000.0 / 3600.0;   // 转换为 m/s
-    double free_flow_time = length / speed_mps;         // 秒
-
-    // 计算道路容量（每小时）
-    double capacity = lanes * BPRConfig::lane_capacity;
-
-    // 计算流量/容量比
-    double volume_capacity_ratio = static_cast<double>(current_vehicles) / capacity;
-
-    // BPR 函数：T = T₀ × [1 + α × (V/C)^β]
-    double congestion_multiplier = 1.0 + BPRConfig::alpha * std::pow(volume_capacity_ratio, BPRConfig::beta);
-    return free_flow_time * congestion_multiplier;
 }

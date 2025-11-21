@@ -1,8 +1,11 @@
 #include "util.h"
+#include "config.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 const std::string start_prefix = "起点：";
 const std::string end_prefix = "终点：";
@@ -206,4 +209,45 @@ void print_cache_statistics(PathCache *cache)
     std::cout << "  Misses: " << cache->get_miss_count() << std::endl;
     std::cout << "  Entries: " << cache->get_entry_count() << std::endl;
     std::cout << "========================================================" << std::endl;
+}
+
+// BPR拥堵函数实现
+
+// 计算拥堵系数：1 + α × (V/C)^β
+double calculate_bpr_congestion_factor(int current_vehicles, int lanes)
+{
+    if (lanes <= 0)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    // 计算道路容量（每小时）
+    double capacity = lanes * BPRConfig::lane_capacity;
+
+    // 计算流量/容量比
+    double volume_capacity_ratio = static_cast<double>(current_vehicles) / capacity;
+
+    // BPR 公式：1 + α × (V/C)^β
+    return 1.0 + BPRConfig::alpha * std::pow(volume_capacity_ratio, BPRConfig::beta);
+}
+
+// 计算自由流通行时间（秒）
+double calculate_free_flow_time(double length_meters, double speed_limit_kmh)
+{
+    if (speed_limit_kmh <= 0)
+    {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    // 转换为 m/s
+    double speed_mps = speed_limit_kmh * 1000.0 / 3600.0;
+    return length_meters / speed_mps;
+}
+
+// 计算通行时间（秒）= 自由流时间 × 拥堵系数
+double calculate_travel_time(double length_meters, double speed_limit_kmh, int lanes, int current_vehicles)
+{
+    double free_flow_time = calculate_free_flow_time(length_meters, speed_limit_kmh);
+    double congestion_factor = calculate_bpr_congestion_factor(current_vehicles, lanes);
+    return free_flow_time * congestion_factor;
 }

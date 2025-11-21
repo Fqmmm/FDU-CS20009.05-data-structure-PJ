@@ -3,6 +3,7 @@
 
 #include <string>
 #include <limits>
+#include "config.h"
 
 class Edge
 {
@@ -12,13 +13,16 @@ public:
     double speed_limit;         // 道路限速（km/h）
     int lanes;                  // 车道数
     int current_vehicles;       // 当前车辆数
-    double weight;              // 边的权重（通行时间）
+
+    // 预计算的权重字段
+    double time;                // 通行时间（秒）= 自由流时间 × 拥堵系数
+    double balanced_score;      // 综合评分 = 归一化时间 × α + 归一化距离 × (1-α)
 
     // 构造函数
     Edge(const std::string& dest, double len, double spd_limit, int num_lanes, int vehicles);
 
-    // 计算并返回边的权重（使用 BPR 函数）
-    double calculate_weight() const;
+    // 根据权重模式获取边的权重
+    double get_weight(WeightMode mode) const;
 };
 
 #endif // EDGE_H
