@@ -136,8 +136,85 @@ bool Graph::from_csv(const std::string &filename)
     return true;
 }
 
+// 计算图中所有边的权重范围（用于归一化）
+WeightRange Graph::calculate_weight_range() const
+{
+    WeightRange range;
+    range.time_min = std::numeric_limits<double>::infinity();
+    range.time_max = 0.0;
+    range.distance_min = std::numeric_limits<double>::infinity();
+    range.distance_max = 0.0;
+
+    // 扫描所有边
+    for (const auto &pair : adj_list)
+    {
+        for (const Edge &edge : pair.second)
+        {
+            // 更新时间范围
+            double time = edge.weight;  // BPR计算的时间
+            if (time < range.time_min)
+                range.time_min = time;
+            if (time > range.time_max)
+                range.time_max = time;
+
+            // 更新距离范围
+            double distance = edge.length;
+            if (distance < range.distance_min)
+                range.distance_min = distance;
+            if (distance > range.distance_max)
+                range.distance_max = distance;
+        }
+    }
+
+    return range;
+}
+
+// 根据权重模式计算边的权重（支持归一化）
+double Graph::calculate_edge_weight(const Edge &edge, WeightMode mode, const WeightRange &range) const
+{
+    switch (mode)
+    {
+    case WeightMode::TIME:
+        // 时间最短：使用BPR计算的时间
+        return edge.weight;
+
+    case WeightMode::DISTANCE:
+        // 距离最短：使用道路长度
+        return edge.length;
+
+    case WeightMode::BALANCED:
+    {
+        // 综合推荐：归一化时间和距离的加权平均
+        double time = edge.weight;
+        double distance = edge.length;
+
+        // 归一化到[0, 1]区间
+        double normalized_time = 0.0;
+        double normalized_distance = 0.0;
+
+        // 避免除零错误
+        if (range.time_max > range.time_min)
+        {
+            normalized_time = (time - range.time_min) / (range.time_max - range.time_min);
+        }
+
+        if (range.distance_max > range.distance_min)
+        {
+            normalized_distance = (distance - range.distance_min) / (range.distance_max - range.distance_min);
+        }
+
+        // 加权平均
+        return PathWeightConfig::time_factor * normalized_time +
+               PathWeightConfig::distance_factor * normalized_distance;
+    }
+
+    default:
+        return edge.weight;
+    }
+}
+
 // 查找最短路径
-std::vector<std::string> Graph::find_shortest_path(const std::string &start, const std::string &end)
+std::vector<std::string> Graph::find_shortest_path(const std::string &start, const std::string &end, WeightMode mode)
 {
     // 检查起点和终点是否存在于图中
     if (adj_list.find(start) == adj_list.end())
@@ -150,6 +227,13 @@ std::vector<std::string> Graph::find_shortest_path(const std::string &start, con
     {
         std::cerr << "Error: End node '" << end << "' not found in graph." << std::endl;
         return {};
+    }
+
+    // 计算权重范围（用于归一化）
+    WeightRange range;
+    if (mode == WeightMode::BALANCED)
+    {
+        range = calculate_weight_range();
     }
 
     // 定义优先队列的元素类型: <距离, 节点名>
@@ -191,13 +275,15 @@ std::vector<std::string> Graph::find_shortest_path(const std::string &start, con
             continue;
         }
 
-        // 遍历当前节点的所有邻居（“松弛”操作）
+        // 遍历当前节点的所有邻居（"松弛"操作）
         if (adj_list.count(current_node))
         {
             for (const Edge &edge : adj_list.at(current_node))
             {
                 std::string neighbor = edge.destination;
-                double new_dist = current_dist + edge.weight;
+                // 根据模式计算边的权重
+                double edge_weight = calculate_edge_weight(edge, mode, range);
+                double new_dist = current_dist + edge_weight;
 
                 if (new_dist < distances[neighbor])
                 {
@@ -227,13 +313,26 @@ std::vector<std::string> Graph::find_shortest_path(const std::string &start, con
         path.push_back(current);
         current = predecessors[current];
     }
-    
+
     // 最后加入起点
     path.push_back(start);
 
     // 翻转路径
     std::reverse(path.begin(), path.end());
 
-    std::cout << "Path found! Total estimated time: " << distances[end] << " seconds." << std::endl;
+    // 根据模式输出不同的信息
+    switch (mode)
+    {
+    case WeightMode::TIME:
+        std::cout << "Path found! Total estimated time: " << distances[end] << " seconds." << std::endl;
+        break;
+    case WeightMode::DISTANCE:
+        std::cout << "Path found! Total distance: " << distances[end] << " meters." << std::endl;
+        break;
+    case WeightMode::BALANCED:
+        std::cout << "Path found! Balanced score: " << distances[end] << std::endl;
+        break;
+    }
+
     return path;
 }

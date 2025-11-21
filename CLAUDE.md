@@ -6,6 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 这是一个城市路网最短路径查找应用，是复旦大学数据结构课程的项目。系统使用带有BPR（Bureau of Public Roads）拥堵建模的Dijkstra算法，在时变交通条件下寻找最优路径。
 
+**核心特性：**
+- **多路径规划**：同时计算并输出三种优化策略的路径
+  - 时间最短路径（Time-Optimized）：基于BPR拥堵模型
+  - 距离最短路径（Distance-Optimized）：基于道路长度
+  - 综合推荐路径（Balanced）：时间与距离的归一化加权平均
+- **智能缓存系统**：持久化LRU缓存，避免重复计算
+- **时变路网支持**：处理不同时间点的交通状况
+
 ## 编译和运行命令
 
 **编译：**
@@ -48,7 +56,12 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
 - 使用邻接表表示：`unordered_map<string, vector<Edge>>`
 - 节点名称为中文地名（UTF-8编码）
 - `from_csv()`：从CSV文件加载路网，支持动态表头解析
-- `find_shortest_path()`：实现优先队列优化的Dijkstra算法
+- `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，支持三种权重模式
+  - `WeightMode::TIME`：时间最短（BPR计算的通行时间）
+  - `WeightMode::DISTANCE`：距离最短（道路长度）
+  - `WeightMode::BALANCED`：综合推荐（归一化加权平均）
+- `calculate_weight_range()`：计算所有边的时间和距离范围，用于归一化
+- `calculate_edge_weight()`：根据权重模式计算边的权重
 
 **2. Edge类（Edge.h/cpp）**
 - 表示道路，包含属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
@@ -60,6 +73,10 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
   - alpha = 0.15（拥堵敏感系数）
   - beta = 4.0（拥堵指数）
   - lane_capacity = 1800.0（每车道每小时通行能力，单位：辆）
+- **PathWeightConfig**：综合路径权重配置
+  - time_factor = 0.6（时间的权重因子α）
+  - distance_factor = 0.4（距离的权重因子1-α）
+  - 综合权重 = α × normalized_time + (1-α) × normalized_distance
 - **CacheConfig**：缓存系统配置参数
   - max_size = 50（LRU缓存最大条目数）
   - cache_dir = ".cache"（缓存目录路径）
@@ -67,14 +84,22 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
 **4. PathCache类（Cache.h/cpp）**
 - 实现持久化LRU（Least Recently Used）缓存机制
 - **核心功能**：
-  - `get()`：查询缓存，返回已保存的路径结果
-  - `put()`：保存新计算的路径到缓存
+  - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径）
+  - `put()`：保存新计算的MultiPath到缓存
   - `clear()`：清空所有缓存
-- **文件签名机制**：
+- **MultiPath结构**：
+  - `time_path`：时间最短路径
+  - `distance_path`：距离最短路径
+  - `balanced_path`：综合推荐路径
+  - 三种路径一次查询全部计算，一起缓存
+  - **空路径缓存**：即使路径不存在（三个路径都为空），也会被缓存，避免重复计算
+- **文件签名机制（FileSignature）**：
   - 使用文件修改时间 + 文件大小检测文件变化
+  - **路径规范化**：使用`std::filesystem::canonical()`将相对路径和绝对路径统一为规范形式
   - 轻量级、几乎零性能开销
   - 文件修改后自动失效对应缓存
 - **缓存键设计**：组合起点、终点、CSV文件签名生成唯一哈希键
+- **缓存命中判断**：通过`hit_count`变化判断（而不是检查路径是否为空），确保空路径结果也能正确识别为缓存命中
 - **LRU淘汰策略**：超过max_size时自动删除最久未使用的条目
 - **持久化存储**：
   - `.cache/cache_index.txt`：缓存索引文件（LRU顺序和元数据）
@@ -86,6 +111,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
 - Windows控制台UTF-8编码设置（`chcp 65001`）
 - 缓存集成和统计信息输出
 - 按顺序处理多个时变地图
+- 多路径输出：为每个查询同时显示时间最短、距离最短、综合推荐三种路径
 
 ### 数据流
 
@@ -97,12 +123,19 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
    - **缓存查询**（如果启用）：
      - 生成缓存键：hash(起点 + 终点 + CSV文件签名)
      - 检查缓存中是否存在该查询结果
-     - 如果命中且文件未修改，直接返回缓存的路径
+     - 如果命中且文件未修改，直接返回缓存的MultiPath（包含三种路径）
    - **路径计算**（缓存未命中或禁用缓存）：
      - Graph加载CSV，动态解析列
-     - Dijkstra使用BPR权重边计算最短路径
-     - 将结果保存到缓存（如果启用）
-   - 输出路径格式："A --> B --> C"
+     - 分别运行三次Dijkstra算法，使用不同的WeightMode：
+       - `WeightMode::TIME`：计算时间最短路径
+       - `WeightMode::DISTANCE`：计算距离最短路径
+       - `WeightMode::BALANCED`：计算综合推荐路径（先归一化，再加权平均）
+     - 将MultiPath结果保存到缓存（如果启用）
+   - **输出三种路径**：
+     - 时间最短路径（Time-Optimized Path）
+     - 距离最短路径（Distance-Optimized Path）
+     - 综合推荐路径（Balanced Path）
+     - 格式："A --> B --> C"
    - 更新LRU顺序（如果使用缓存）
 
 3. 输出缓存统计信息（Hits/Misses/Entries）
@@ -120,6 +153,14 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
 - 到达目标节点时提前终止
 - 通过predecessors映射重建路径
 - 无路径时返回空vector
+- **多种权重模式**：
+  - TIME模式：直接使用edge.weight（BPR计算的通行时间）
+  - DISTANCE模式：直接使用edge.length（道路长度）
+  - BALANCED模式：归一化 + 加权平均
+    - 步骤1：扫描所有边，计算时间和距离的min/max
+    - 步骤2：归一化 = (value - min) / (max - min)，映射到[0, 1]
+    - 步骤3：weighted_score = α × norm_time + (1-α) × norm_distance
+    - 默认权重：α=0.6（时间），1-α=0.4（距离）
 
 **编码处理：**
 - 所有中文文本使用UTF-8编码
@@ -131,6 +172,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
 - **持久化**：程序退出后缓存保留，下次运行继续使用
 - **文件签名**：
   - 结构：`{path, modification_time, file_size}`
+  - **路径规范化**：使用`std::filesystem::canonical()`将所有路径（绝对/相对）转换为规范的绝对路径，确保指向同一文件的不同路径表示生成相同的缓存键
   - 检测开销：仅查询文件系统元数据，不读取文件内容
   - 自动失效：文件修改后签名不匹配，缓存自动失效
 - **缓存键生成**：`std::hash<string>(start + "|" + end + "|" + csv_signature)`
@@ -141,12 +183,24 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp -o pathfinder.ex
   lru_order: key1,key2,key3,...
   entry: key|start|end|csv_path|mtime|size|cache_file|created_time
   ```
-- **缓存文件格式**（纯文本，每行一个节点名）：
+- **缓存文件格式**（纯文本，存储三种路径）：
   ```
+  # TIME
+  节点1
+  节点2
+  节点3
+  # DISTANCE
+  节点1
+  节点2
+  节点3
+  # BALANCED
   节点1
   节点2
   节点3
   ```
+  - 使用section markers（# TIME, # DISTANCE, # BALANCED）分隔三种路径
+  - 每种路径按顺序列出节点名称，每行一个节点
+  - **空路径**：如果某种路径不存在，对应section下没有节点行（只有section marker）
 
 ## 重要约束
 
@@ -201,7 +255,13 @@ Test_Cases/
    - 几乎零性能开销（不读取文件内容计算哈希）
    - CSV文件修改后自动失效对应缓存
 
-4. **灵活的命令行控制**
+4. **空路径结果缓存**
+   - **重要特性**：即使查询结果为"无路径"（起点和终点不连通），也会被缓存
+   - **原因**：计算"无路径"仍需运行完整的Dijkstra算法，性能开销相同
+   - **效果**：避免对不连通节点对重复计算
+   - **实现**：通过`hit_count`变化判断缓存命中，而不是检查路径是否为空
+
+5. **灵活的命令行控制**
    - 默认启用缓存
    - `--no_cache`：强制重新计算，不查询和保存缓存
    - `--clear-cache`：手动清空所有缓存
@@ -222,16 +282,22 @@ Test_Cases/
 查询结果会被缓存，当且仅当以下三个条件**完全相同**时缓存命中：
 1. **起点**相同
 2. **终点**相同
-3. **CSV文件签名**相同（路径、修改时间、文件大小）
+3. **CSV文件签名**相同（规范化路径、修改时间、文件大小）
+
+**重要**：文件路径会自动规范化，因此以下情况都会正确命中缓存：
+- 第一次使用绝对路径：`D:/Jimmy/_data_structure/PJ/Test_Cases/...`
+- 第二次使用相对路径：`Test_Cases/...`
+- 只要指向同一文件，路径会被规范化为相同的绝对路径
 
 ### 性能提升
 
-- **缓存命中时**：< 1ms（仅读取小文本文件）
-- **缓存未命中时**：正常Dijkstra计算时间
+- **缓存命中时**：< 1ms（仅读取小文本文件，一次获取三种路径）
+- **缓存未命中时**：正常Dijkstra计算时间 × 3（需要计算三种路径）
 - **适用场景**：
   - 开发调试阶段反复运行相同测试用例
   - 批量测试中有重复的(起点,终点,地图)组合
   - CI/CD流程中的回归测试
+  - 时变路网分析（同一查询在不同时间点的地图上）
 
 ### 配置参数
 
@@ -243,6 +309,11 @@ size_t CacheConfig::max_size = 100;  // 默认50
 
 // 修改缓存目录
 std::string CacheConfig::cache_dir = ".mycache";  // 默认".cache"
+
+// 修改综合路径的权重因子
+double PathWeightConfig::time_factor = 0.7;      // 默认0.6（时间权重）
+double PathWeightConfig::distance_factor = 0.3;  // 默认0.4（距离权重）
+// 注意：time_factor + distance_factor 应该等于 1.0
 ```
 
 修改后需要重新编译。
@@ -266,3 +337,75 @@ Cache Statistics:
 - 清空缓存不会删除`.cache/`目录本身，只删除其中的文件
 - 如果测试用例的CSV文件被修改，对应缓存会自动失效，无需手动清空
 - 缓存键使用哈希值，不同查询产生冲突的概率极低（< 2^-64）
+- **路径规范化**：系统自动将绝对路径和相对路径规范化，确保指向同一文件的不同路径表示可以正确命中缓存
+- **多路径缓存**：每次缓存存储三种路径（时间最短、距离最短、综合推荐），一次查询命中可获取全部三种路径结果
+- **空路径缓存**：即使查询结果为"无路径"（起点终点不连通），也会被缓存，第二次查询相同的无路径情况会直接命中缓存，避免重复运行Dijkstra算法
+
+## 多路径规划详解
+
+### 功能概述
+
+系统为每个查询同时计算三种优化策略的路径，满足不同的导航需求：
+
+1. **时间最短路径（Time-Optimized）**
+   - 优化目标：最小化总通行时间
+   - 权重：使用BPR拥堵模型计算的实际通行时间
+   - 适用场景：用户希望尽快到达目的地，可以接受较长的距离
+
+2. **距离最短路径（Distance-Optimized）**
+   - 优化目标：最小化总行驶距离
+   - 权重：直接使用道路长度（米）
+   - 适用场景：用户希望节省燃油、减少里程，可以接受较长的时间
+
+3. **综合推荐路径（Balanced）**
+   - 优化目标：平衡时间和距离
+   - 权重：归一化后的加权平均
+   - 适用场景：用户希望在时间和距离之间取得平衡
+
+### 综合路径算法
+
+综合推荐路径使用**归一化 + 加权平均**的方法：
+
+**步骤1：计算权重范围**
+- 扫描图中所有边
+- 记录时间的最小值time_min和最大值time_max
+- 记录距离的最小值distance_min和最大值distance_max
+
+**步骤2：归一化到[0, 1]**
+```
+normalized_time = (time - time_min) / (time_max - time_min)
+normalized_distance = (distance - distance_min) / (distance_max - distance_min)
+```
+
+**步骤3：加权平均**
+```
+balanced_weight = α × normalized_time + (1-α) × normalized_distance
+```
+其中α = 0.6（时间权重），1-α = 0.4（距离权重）
+
+### 为什么使用归一化
+
+时间（秒）和距离（米）是**不同量纲**的物理量，不能直接相加或比较。归一化的作用：
+1. **消除量纲影响**：将两者映射到相同的[0, 1]无量纲区间
+2. **数值稳定性**：避免某一指标因数值过大而主导结果
+3. **权重可控性**：权重因子α的意义明确（时间占比）
+
+### 输出格式
+
+程序为每个地图查询输出三个路径，格式如下：
+
+```
+┌─ Time-Optimized Path (时间最短) ────────────────────
+│ Path: 起点 --> 中转1 --> 中转2 --> 终点
+└─────────────────────────────────────────────────────
+
+┌─ Distance-Optimized Path (距离最短) ────────────────
+│ Path: 起点 --> 中转A --> 中转B --> 终点
+└─────────────────────────────────────────────────────
+
+┌─ Balanced Path (综合推荐) ──────────────────────────
+│ Path: 起点 --> 中转X --> 中转Y --> 终点
+└─────────────────────────────────────────────────────
+```
+
+即使三条路径完全相同，也会分别显示完整路径，方便用户对比。

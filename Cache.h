@@ -8,6 +8,14 @@
 #include <filesystem>
 #include <chrono>
 
+// 多路径结构体（存储三种路径）
+struct MultiPath
+{
+    std::vector<std::string> time_path;      // 时间最短路径
+    std::vector<std::string> distance_path;  // 距离最短路径
+    std::vector<std::string> balanced_path;  // 综合推荐路径
+};
+
 // 文件签名：使用修改时间和文件大小作为轻量级的文件变化检测
 struct FileSignature
 {
@@ -47,16 +55,16 @@ public:
     // max_size: LRU缓存最大条目数
     PathCache(const std::string &cache_dir = ".cache", size_t max_size = 50);
 
-    // 查询缓存，返回空vector表示缓存未命中
-    std::vector<std::string> get(const std::string &start,
-                                   const std::string &end,
-                                   const std::string &csv_file);
+    // 查询缓存，返回MultiPath，如果未命中则所有路径为空
+    MultiPath get(const std::string &start,
+                  const std::string &end,
+                  const std::string &csv_file);
 
-    // 保存到缓存
+    // 保存到缓存（三种路径一起保存）
     void put(const std::string &start,
              const std::string &end,
              const std::string &csv_file,
-             const std::vector<std::string> &path);
+             const MultiPath &paths);
 
     // 清空所有缓存
     void clear();
@@ -69,7 +77,7 @@ public:
 private:
     std::string cache_dir;
     std::string paths_dir;       // cache_dir/paths/
-    std::string index_file_path; // cache_dir/cache_index.json
+    std::string index_file_path; // cache_dir/cache_index.txt
     size_t max_size;
 
     // LRU数据结构
@@ -100,11 +108,11 @@ private:
                              const std::string &end,
                              const FileSignature &sig);
 
-    // 从缓存文件读取路径
-    std::vector<std::string> read_cache_file(const std::string &file_path);
+    // 从缓存文件读取多路径
+    MultiPath read_cache_file(const std::string &file_path);
 
-    // 写入路径到缓存文件
-    void write_cache_file(const std::string &file_path, const std::vector<std::string> &path);
+    // 写入多路径到缓存文件
+    void write_cache_file(const std::string &file_path, const MultiPath &paths);
 };
 
 #endif

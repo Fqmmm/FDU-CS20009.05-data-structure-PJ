@@ -11,22 +11,27 @@
 
 FileSignature::FileSignature(const std::string &file_path)
 {
-    path = file_path;
     try
     {
         if (std::filesystem::exists(file_path))
         {
+            // 规范化路径：将相对路径转换为绝对路径
+            // 这样 "./foo" 和 "D:/bar/foo" 如果指向同一文件，会生成相同的签名
+            path = std::filesystem::canonical(file_path).string();
             mtime = std::filesystem::last_write_time(file_path);
             size = std::filesystem::file_size(file_path);
         }
         else
         {
+            // 文件不存在，使用原始路径
+            path = file_path;
             size = 0;
         }
     }
     catch (const std::filesystem::filesystem_error &e)
     {
         std::cerr << "Warning: Could not get file signature for " << file_path << ": " << e.what() << std::endl;
+        path = file_path;
         size = 0;
     }
 }
@@ -109,10 +114,12 @@ std::string PathCache::generate_key(const std::string &start,
     return oss.str();
 }
 
-std::vector<std::string> PathCache::get(const std::string &start,
-                                         const std::string &end,
-                                         const std::string &csv_file)
+MultiPath PathCache::get(const std::string &start,
+                          const std::string &end,
+                          const std::string &csv_file)
 {
+    MultiPath empty_result;  // 空结果
+
     // 生成文件签名
     FileSignature sig(csv_file);
     std::string key = generate_key(start, end, sig);
@@ -123,7 +130,7 @@ std::vector<std::string> PathCache::get(const std::string &start,
     {
         // 缓存未命中
         miss_count++;
-        return {};
+        return empty_result;
     }
 
     // 检查文件签名是否仍然匹配
@@ -134,7 +141,7 @@ std::vector<std::string> PathCache::get(const std::string &start,
         lru_list.remove(key);
         entries.erase(it);
         miss_count++;
-        return {};
+        return empty_result;
     }
 
     // 缓存命中，更新LRU顺序
@@ -148,7 +155,7 @@ std::vector<std::string> PathCache::get(const std::string &start,
 void PathCache::put(const std::string &start,
                     const std::string &end,
                     const std::string &csv_file,
-                    const std::vector<std::string> &path)
+                    const MultiPath &paths)
 {
     // 生成文件签名和键
     FileSignature sig(csv_file);
@@ -171,7 +178,7 @@ void PathCache::put(const std::string &start,
 
     // 创建缓存文件
     std::string cache_file = paths_dir + "/" + key + ".cache";
-    write_cache_file(cache_file, path);
+    write_cache_file(cache_file, paths);
 
     // 创建缓存条目
     CacheEntry entry;
@@ -239,17 +246,19 @@ void PathCache::touch(const std::string &key)
     lru_list.push_front(key);
 }
 
-std::vector<std::string> PathCache::read_cache_file(const std::string &file_path)
+MultiPath PathCache::read_cache_file(const std::string &file_path)
 {
-    std::vector<std::string> path;
+    MultiPath paths;
     std::ifstream file(file_path);
 
     if (!file.is_open())
     {
-        return path;
+        return paths;
     }
 
     std::string line;
+    std::vector<std::string> *current_path = nullptr;
+
     while (std::getline(file, line))
     {
         // 移除可能的回车符
@@ -257,17 +266,37 @@ std::vector<std::string> PathCache::read_cache_file(const std::string &file_path
         {
             line.pop_back();
         }
-        if (!line.empty())
+
+        if (line.empty())
         {
-            path.push_back(line);
+            continue;  // 跳过空行
+        }
+
+        // 检查是否是路径类型标记
+        if (line == "# TIME")
+        {
+            current_path = &paths.time_path;
+        }
+        else if (line == "# DISTANCE")
+        {
+            current_path = &paths.distance_path;
+        }
+        else if (line == "# BALANCED")
+        {
+            current_path = &paths.balanced_path;
+        }
+        else if (current_path != nullptr)
+        {
+            // 添加节点到当前路径
+            current_path->push_back(line);
         }
     }
 
     file.close();
-    return path;
+    return paths;
 }
 
-void PathCache::write_cache_file(const std::string &file_path, const std::vector<std::string> &path)
+void PathCache::write_cache_file(const std::string &file_path, const MultiPath &paths)
 {
     std::ofstream file(file_path);
 
@@ -277,7 +306,23 @@ void PathCache::write_cache_file(const std::string &file_path, const std::vector
         return;
     }
 
-    for (const auto &node : path)
+    // 写入时间最短路径
+    file << "# TIME\n";
+    for (const auto &node : paths.time_path)
+    {
+        file << node << "\n";
+    }
+
+    // 写入距离最短路径
+    file << "# DISTANCE\n";
+    for (const auto &node : paths.distance_path)
+    {
+        file << node << "\n";
+    }
+
+    // 写入综合推荐路径
+    file << "# BALANCED\n";
+    for (const auto &node : paths.balanced_path)
     {
         file << node << "\n";
     }

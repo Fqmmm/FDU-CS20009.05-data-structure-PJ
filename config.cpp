@@ -8,3 +8,7 @@ double BPRConfig::lane_capacity = 1800.0;
 // 缓存参数默认值
 size_t CacheConfig::max_size = 50;
 std::string CacheConfig::cache_dir = ".cache";
+
+// 综合路径权重参数默认值
+double PathWeightConfig::time_factor = 0.6;
+double PathWeightConfig::distance_factor = 0.4;

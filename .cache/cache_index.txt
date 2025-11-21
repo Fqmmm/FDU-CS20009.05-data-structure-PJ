@@ -1,5 +1,9 @@
 # PathCache Index File
 max_size: 50
-entry_count: 1
-lru_order: 68d3e061da94ddf2
-entry: 68d3e061da94ddf2|上海世纪公园|复旦大学（邯郸校区）|Test_Cases/test_cases/shanghai_test_cases/case1_simple\map_1200.csv|-4678677486000000000|1151|.cache/paths/68d3e061da94ddf2.cache|1763705109294362500
+entry_count: 5
+lru_order: 6191d4fd9bc1078d,2daba16ec04159dc,84b2a660e446b80a,96273212eee84aea,c411b0c16f35c454
+entry: 6191d4fd9bc1078d|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1830.csv|-4678677486000000000|1502|.cache/paths/6191d4fd9bc1078d.cache|1763708128075613600
+entry: 2daba16ec04159dc|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1400.csv|-4678677486000000000|1489|.cache/paths/2daba16ec04159dc.cache|1763708128073894900
+entry: 84b2a660e446b80a|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_0800.csv|-4678677486000000000|1502|.cache/paths/84b2a660e446b80a.cache|1763708128072202000
+entry: c411b0c16f35c454|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_0800.csv|-4678677486000000000|1154|.cache/paths/c411b0c16f35c454.cache|1763708110514293300
+entry: 96273212eee84aea|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_1400.csv|-4678677486000000000|1141|.cache/paths/96273212eee84aea.cache|1763708110515501500

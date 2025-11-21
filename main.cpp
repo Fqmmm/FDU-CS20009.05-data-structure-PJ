@@ -132,6 +132,21 @@ void print_path(const std::vector<std::string> &path)
     }
 }
 
+// 辅助函数：判断两个路径是否相同
+bool paths_equal(const std::vector<std::string> &path1, const std::vector<std::string> &path2)
+{
+    if (path1.size() != path2.size())
+        return false;
+
+    for (size_t i = 0; i < path1.size(); ++i)
+    {
+        if (path1[i] != path2[i])
+            return false;
+    }
+
+    return true;
+}
+
 // 处理单个地图文件，查找并打印最短路径
 void process_map(const std::string &map_file, const std::string &start_node, const std::string &end_node,
                  PathCache *cache, bool use_cache)
@@ -140,50 +155,117 @@ void process_map(const std::string &map_file, const std::string &start_node, con
     std::cout << "Processing map: " << map_file << std::endl;
     std::cout << "========================================================" << std::endl;
 
-    std::vector<std::string> path;
+    MultiPath cached_paths;
+    bool cache_hit = false;
 
     // 尝试从缓存获取（如果启用缓存）
     if (use_cache && cache != nullptr)
     {
-        path = cache->get(start_node, end_node, map_file);
-        if (!path.empty())
+        // 记录查询前的hit_count，通过hit_count变化判断是否命中
+        size_t old_hit_count = cache->get_hit_count();
+        cached_paths = cache->get(start_node, end_node, map_file);
+        cache_hit = (cache->get_hit_count() > old_hit_count);
+
+        if (cache_hit)
         {
-            std::cout << "[Cache Hit] Using cached result." << std::endl;
-            // 计算缓存的路径时间（需要重新加载地图来计算）
-            // 为了简单起见，这里只显示路径，不重新计算时间
-            print_path(path);
-            std::cout << "\n\n";
-            return;
+            std::cout << "\n[Cache Hit] Using cached results.\n" << std::endl;
         }
         else
         {
-            std::cout << "[Cache Miss] Computing shortest path..." << std::endl;
+            std::cout << "\n[Cache Miss] Computing paths using three different strategies...\n" << std::endl;
         }
     }
     else if (!use_cache)
     {
-        std::cout << "[Cache Disabled] Computing shortest path..." << std::endl;
+        std::cout << "\n[Cache Disabled] Computing paths using three different strategies...\n" << std::endl;
     }
-
-    // 缓存未命中或禁用缓存，执行Dijkstra算法
-    Graph city_map;
-    if (!city_map.from_csv(map_file))
+    else
     {
-        std::cerr << "Error: Failed to load map file " << map_file << std::endl;
-        return;
+        std::cout << "\nComputing paths using three different strategies...\n" << std::endl;
     }
 
-    path = city_map.find_shortest_path(start_node, end_node);
+    MultiPath paths;
 
-    // 保存到缓存（如果启用缓存且路径非空）
-    if (use_cache && cache != nullptr && !path.empty())
+    if (cache_hit)
     {
-        cache->put(start_node, end_node, map_file, path);
+        // 使用缓存的路径
+        paths = cached_paths;
+    }
+    else
+    {
+        // 缓存未命中或禁用缓存，执行Dijkstra算法
+        Graph city_map;
+        if (!city_map.from_csv(map_file))
+        {
+            std::cerr << "Error: Failed to load map file " << map_file << std::endl;
+            return;
+        }
+
+        // 计算三种路径
+        paths.time_path = city_map.find_shortest_path(start_node, end_node, WeightMode::TIME);
+        paths.distance_path = city_map.find_shortest_path(start_node, end_node, WeightMode::DISTANCE);
+        paths.balanced_path = city_map.find_shortest_path(start_node, end_node, WeightMode::BALANCED);
+
+        // 保存到缓存（如果启用缓存）
+        // 注意：即使路径为空（无路径），也应该缓存，避免重复计算
+        if (use_cache && cache != nullptr)
+        {
+            cache->put(start_node, end_node, map_file, paths);
+        }
     }
 
-    print_path(path);
+    // 输出时间最短路径
+    std::cout << "\n┌─ Time-Optimized Path (时间最短) ────────────────────" << std::endl;
+    if (!paths.time_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.time_path.size(); ++i)
+        {
+            std::cout << paths.time_path[i] << (i == paths.time_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
 
-    std::cout << "\n\n";
+    // 输出距离最短路径
+    std::cout << "\n┌─ Distance-Optimized Path (距离最短) ────────────────" << std::endl;
+    if (!paths.distance_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.distance_path.size(); ++i)
+        {
+            std::cout << paths.distance_path[i] << (i == paths.distance_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
+
+    // 输出综合推荐路径
+    std::cout << "\n┌─ Balanced Path (综合推荐) ──────────────────────────" << std::endl;
+    if (!paths.balanced_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.balanced_path.size(); ++i)
+        {
+            std::cout << paths.balanced_path[i] << (i == paths.balanced_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
+
+    std::cout << "\n";
 }
 
 int main(int argc, char *argv[])
