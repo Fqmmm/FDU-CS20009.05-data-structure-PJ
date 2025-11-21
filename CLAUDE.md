@@ -56,12 +56,15 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - 使用邻接表表示：`unordered_map<string, vector<Edge>>`
 - 节点名称为中文地名（UTF-8编码）
 - `from_csv()`：从CSV文件加载路网，支持动态表头解析
-- `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，支持三种权重模式
+- `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，返回PathResult
   - `WeightMode::TIME`：时间最短（BPR计算的通行时间）
   - `WeightMode::DISTANCE`：距离最短（道路长度）
   - `WeightMode::BALANCED`：综合推荐（归一化加权平均）
+  - 返回`PathResult`结构体，包含路径和对应代价值
 - `calculate_weight_range()`：计算所有边的时间和距离范围，用于归一化
 - `calculate_edge_weight()`：根据权重模式计算边的权重
+- `calculate_path_cost()`：计算给定路径在指定权重模式下的总代价
+- **PathResult结构体**：包含路径节点列表和代价值
 
 **2. Edge类（Edge.h/cpp）**
 - 表示道路，包含属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
@@ -84,14 +87,15 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 **4. PathCache类（Cache.h/cpp）**
 - 实现持久化LRU（Least Recently Used）缓存机制
 - **核心功能**：
-  - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径）
+  - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径及其指标）
   - `put()`：保存新计算的MultiPath到缓存
   - `clear()`：清空所有缓存
 - **MultiPath结构**：
-  - `time_path`：时间最短路径
-  - `distance_path`：距离最短路径
-  - `balanced_path`：综合推荐路径
-  - 三种路径一次查询全部计算，一起缓存
+  - `time_path` + `time_path_time` + `time_path_distance`：时间最短路径及其时间（秒）和距离（米）
+  - `distance_path` + `distance_path_time` + `distance_path_distance`：距离最短路径及其时间（秒）和距离（米）
+  - `balanced_path` + `balanced_path_time` + `balanced_path_distance`：综合推荐路径及其时间（秒）和距离（米）
+  - 每种路径都存储完整的时间和距离指标，方便用户全面对比
+  - 三种路径及其指标一次查询全部计算，一起缓存
   - **空路径缓存**：即使路径不存在（三个路径都为空），也会被缓存，避免重复计算
 - **文件签名机制（FileSignature）**：
   - 使用文件修改时间 + 文件大小检测文件变化
@@ -196,24 +200,31 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   lru_order: key1,key2,key3,...
   entry: key|start|end|csv_path|mtime|size|cache_file|created_time
   ```
-- **缓存文件格式**（纯文本，存储三种路径）：
+- **缓存文件格式**（纯文本，存储三种路径及指标）：
   ```
   # TIME
+  time: 1048.95
+  distance: 19710
   节点1
   节点2
   节点3
   # DISTANCE
+  time: 1050.20
+  distance: 19500
   节点1
   节点2
   节点3
   # BALANCED
+  time: 1049.50
+  distance: 19600
   节点1
   节点2
   节点3
   ```
   - 使用section markers（# TIME, # DISTANCE, # BALANCED）分隔三种路径
-  - 每种路径按顺序列出节点名称，每行一个节点
-  - **空路径**：如果某种路径不存在，对应section下没有节点行（只有section marker）
+  - 每个section后紧跟两个指标值：time和distance
+  - 然后是节点名称，每行一个节点
+  - **空路径**：如果某种路径不存在，对应section下的time和distance值为0，没有节点行
 
 ## 重要约束
 
@@ -405,20 +416,32 @@ balanced_weight = α × normalized_time + (1-α) × normalized_distance
 
 ### 输出格式
 
-程序为每个地图查询输出三个路径，格式如下：
+程序为每个地图查询输出三个路径及其指标，格式如下：
 
 ```
 ┌─ Time-Optimized Path (时间最短) ────────────────────
 │ Path: 起点 --> 中转1 --> 中转2 --> 终点
+│ Total Time: 1048.95 seconds
+│ Total Distance: 19710 meters
 └─────────────────────────────────────────────────────
 
 ┌─ Distance-Optimized Path (距离最短) ────────────────
 │ Path: 起点 --> 中转A --> 中转B --> 终点
+│ Total Time: 1050.20 seconds
+│ Total Distance: 19500 meters
 └─────────────────────────────────────────────────────
 
 ┌─ Balanced Path (综合推荐) ──────────────────────────
 │ Path: 起点 --> 中转X --> 中转Y --> 终点
+│ Total Time: 1049.50 seconds
+│ Total Distance: 19600 meters
 └─────────────────────────────────────────────────────
 ```
 
-即使三条路径完全相同，也会分别显示完整路径，方便用户对比。
+**设计原则**：
+- **所有路径都显示时间和距离**：方便用户全面对比三种路径的优劣
+- 时间最短路径：通常时间最少，但距离可能较长
+- 距离最短路径：通常距离最短，但时间可能较长
+- 综合推荐路径：在时间和距离之间取得平衡
+- 即使三条路径完全相同，也会分别显示完整路径和指标
+- 指标值紧随路径显示，而不是在计算时输出

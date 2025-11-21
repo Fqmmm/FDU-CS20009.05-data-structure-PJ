@@ -16,6 +16,15 @@ struct WeightRange
     double distance_max;
 };
 
+// 路径结果结构体（包含路径和代价）
+struct PathResult
+{
+    std::vector<std::string> path;  // 路径节点列表
+    double cost;                     // 路径代价（根据mode不同而不同）
+
+    PathResult() : cost(0) {}
+};
+
 class Graph
 {
 public:
@@ -24,9 +33,15 @@ public:
     // 从CSV文件加载地图数据来构建图，返回true表示成功，false表示失败
     bool from_csv(const std::string &filename);
 
-    // 查找最短路径（实现Dijkstra算法），返回一个包含路径上所有地点的vector
+    // 查找最短路径（实现Dijkstra算法），返回PathResult包含路径和代价
     // mode: 权重模式（TIME/DISTANCE/BALANCED）
-    std::vector<std::string> find_shortest_path(const std::string &start, const std::string &end, WeightMode mode = WeightMode::TIME);
+    PathResult find_shortest_path(const std::string &start, const std::string &end, WeightMode mode = WeightMode::TIME);
+
+    // 计算给定路径的总代价
+    // path: 节点序列
+    // mode: 权重模式（TIME/DISTANCE/BALANCED）
+    // 返回: 路径的总代价，如果路径无效返回0
+    double calculate_path_cost(const std::vector<std::string> &path, WeightMode mode);
 
     // 计算图中所有边的权重范围（用于归一化）
     WeightRange calculate_weight_range() const;

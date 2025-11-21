@@ -258,6 +258,7 @@ MultiPath PathCache::read_cache_file(const std::string &file_path)
 
     std::string line;
     std::vector<std::string> *current_path = nullptr;
+    std::string current_section = "";
 
     while (std::getline(file, line))
     {
@@ -276,14 +277,55 @@ MultiPath PathCache::read_cache_file(const std::string &file_path)
         if (line == "# TIME")
         {
             current_path = &paths.time_path;
+            current_section = "TIME";
         }
         else if (line == "# DISTANCE")
         {
             current_path = &paths.distance_path;
+            current_section = "DISTANCE";
         }
         else if (line == "# BALANCED")
         {
             current_path = &paths.balanced_path;
+            current_section = "BALANCED";
+        }
+        else if (line.rfind("cost: ", 0) == 0)
+        {
+            // 已废弃，为了兼容性保留
+        }
+        else if (line.rfind("time: ", 0) == 0)
+        {
+            // 解析time值
+            double time_value = std::stod(line.substr(6));
+            if (current_section == "TIME")
+            {
+                paths.time_path_time = time_value;
+            }
+            else if (current_section == "DISTANCE")
+            {
+                paths.distance_path_time = time_value;
+            }
+            else if (current_section == "BALANCED")
+            {
+                paths.balanced_path_time = time_value;
+            }
+        }
+        else if (line.rfind("distance: ", 0) == 0)
+        {
+            // 解析distance值
+            double distance_value = std::stod(line.substr(10));
+            if (current_section == "TIME")
+            {
+                paths.time_path_distance = distance_value;
+            }
+            else if (current_section == "DISTANCE")
+            {
+                paths.distance_path_distance = distance_value;
+            }
+            else if (current_section == "BALANCED")
+            {
+                paths.balanced_path_distance = distance_value;
+            }
         }
         else if (current_path != nullptr)
         {
@@ -308,6 +350,8 @@ void PathCache::write_cache_file(const std::string &file_path, const MultiPath &
 
     // 写入时间最短路径
     file << "# TIME\n";
+    file << "time: " << paths.time_path_time << "\n";
+    file << "distance: " << paths.time_path_distance << "\n";
     for (const auto &node : paths.time_path)
     {
         file << node << "\n";
@@ -315,6 +359,8 @@ void PathCache::write_cache_file(const std::string &file_path, const MultiPath &
 
     // 写入距离最短路径
     file << "# DISTANCE\n";
+    file << "time: " << paths.distance_path_time << "\n";
+    file << "distance: " << paths.distance_path_distance << "\n";
     for (const auto &node : paths.distance_path)
     {
         file << node << "\n";
@@ -322,6 +368,8 @@ void PathCache::write_cache_file(const std::string &file_path, const MultiPath &
 
     // 写入综合推荐路径
     file << "# BALANCED\n";
+    file << "time: " << paths.balanced_path_time << "\n";
+    file << "distance: " << paths.balanced_path_distance << "\n";
     for (const auto &node : paths.balanced_path)
     {
         file << node << "\n";

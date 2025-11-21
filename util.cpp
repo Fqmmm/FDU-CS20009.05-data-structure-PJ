@@ -133,13 +133,61 @@ void print_single_path(const std::string &title, const std::vector<std::string> 
 void print_multi_paths(const MultiPath &paths)
 {
     // 输出时间最短路径
-    print_single_path("Time-Optimized Path (时间最短)", paths.time_path);
+    std::cout << "\n┌─ Time-Optimized Path (时间最短) ────────────────────" << std::endl;
+    if (!paths.time_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.time_path.size(); ++i)
+        {
+            std::cout << paths.time_path[i] << (i == paths.time_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+        std::cout << "│ Total Time: " << paths.time_path_time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.time_path_distance << " meters" << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
 
     // 输出距离最短路径
-    print_single_path("Distance-Optimized Path (距离最短)", paths.distance_path);
+    std::cout << "\n┌─ Distance-Optimized Path (距离最短) ────────────────" << std::endl;
+    if (!paths.distance_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.distance_path.size(); ++i)
+        {
+            std::cout << paths.distance_path[i] << (i == paths.distance_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+        std::cout << "│ Total Time: " << paths.distance_path_time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.distance_path_distance << " meters" << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
 
     // 输出综合推荐路径
-    print_single_path("Balanced Path (综合推荐)", paths.balanced_path);
+    std::cout << "\n┌─ Balanced Path (综合推荐) ──────────────────────────" << std::endl;
+    if (!paths.balanced_path.empty())
+    {
+        std::cout << "│ Path: ";
+        for (size_t i = 0; i < paths.balanced_path.size(); ++i)
+        {
+            std::cout << paths.balanced_path[i] << (i == paths.balanced_path.size() - 1 ? "" : " --> ");
+        }
+        std::cout << std::endl;
+        std::cout << "│ Total Time: " << paths.balanced_path_time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.balanced_path_distance << " meters" << std::endl;
+    }
+    else
+    {
+        std::cout << "│ No path found." << std::endl;
+    }
+    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
 
     std::cout << "\n";
 }

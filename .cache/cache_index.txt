@@ -1,0 +1,7 @@
+# PathCache Index File
+max_size: 50
+entry_count: 3
+lru_order: 6191d4fd9bc1078d,2daba16ec04159dc,84b2a660e446b80a
+entry: 6191d4fd9bc1078d|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1830.csv|-4678677486000000000|1502|.cache/paths/6191d4fd9bc1078d.cache|1763710355114967100
+entry: 2daba16ec04159dc|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1400.csv|-4678677486000000000|1489|.cache/paths/2daba16ec04159dc.cache|1763710355113111000
+entry: 84b2a660e446b80a|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_0800.csv|-4678677486000000000|1502|.cache/paths/84b2a660e446b80a.cache|1763710355111242700

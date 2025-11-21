@@ -214,19 +214,21 @@ double Graph::calculate_edge_weight(const Edge &edge, WeightMode mode, const Wei
 }
 
 // 查找最短路径
-std::vector<std::string> Graph::find_shortest_path(const std::string &start, const std::string &end, WeightMode mode)
+PathResult Graph::find_shortest_path(const std::string &start, const std::string &end, WeightMode mode)
 {
+    PathResult result;
+
     // 检查起点和终点是否存在于图中
     if (adj_list.find(start) == adj_list.end())
     {
         std::cerr << "Error: Start node '" << start << "' not found in graph." << std::endl;
-        return {};
+        return result;
     }
 
     if (adj_list.find(end) == adj_list.end())
     {
         std::cerr << "Error: End node '" << end << "' not found in graph." << std::endl;
-        return {};
+        return result;
     }
 
     // 计算权重范围（用于归一化）
@@ -299,40 +301,76 @@ std::vector<std::string> Graph::find_shortest_path(const std::string &start, con
     }
 
     // 路径回溯
-    std::vector<std::string> path;
     std::string current = end;
 
     // 如果终点的距离仍然是无穷大，或者终点没有前驱（且非起点），说明不可达
     if (distances[end] == std::numeric_limits<double>::infinity())
     {
-        return {}; // 返回空路径
+        return result; // 返回空路径（cost=0, path为空）
     }
 
     while (predecessors.count(current))
     {
-        path.push_back(current);
+        result.path.push_back(current);
         current = predecessors[current];
     }
 
     // 最后加入起点
-    path.push_back(start);
+    result.path.push_back(start);
 
     // 翻转路径
-    std::reverse(path.begin(), path.end());
+    std::reverse(result.path.begin(), result.path.end());
 
-    // 根据模式输出不同的信息
-    switch (mode)
+    // 设置代价
+    result.cost = distances[end];
+
+    return result;
+}
+
+// 计算给定路径的总代价
+double Graph::calculate_path_cost(const std::vector<std::string> &path, WeightMode mode)
+{
+    if (path.size() < 2)
     {
-    case WeightMode::TIME:
-        std::cout << "Path found! Total estimated time: " << distances[end] << " seconds." << std::endl;
-        break;
-    case WeightMode::DISTANCE:
-        std::cout << "Path found! Total distance: " << distances[end] << " meters." << std::endl;
-        break;
-    case WeightMode::BALANCED:
-        std::cout << "Path found! Balanced score: " << distances[end] << std::endl;
-        break;
+        return 0.0; // 路径太短，无法计算
     }
 
-    return path;
+    // 计算权重范围（用于归一化，如果mode是BALANCED）
+    WeightRange range;
+    if (mode == WeightMode::BALANCED)
+    {
+        range = calculate_weight_range();
+    }
+
+    double total_cost = 0.0;
+
+    // 遍历路径中的每条边
+    for (size_t i = 0; i < path.size() - 1; ++i)
+    {
+        const std::string &from = path[i];
+        const std::string &to = path[i + 1];
+
+        // 查找边
+        bool edge_found = false;
+        if (adj_list.count(from))
+        {
+            for (const Edge &edge : adj_list.at(from))
+            {
+                if (edge.destination == to)
+                {
+                    total_cost += calculate_edge_weight(edge, mode, range);
+                    edge_found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!edge_found)
+        {
+            std::cerr << "Warning: Edge from '" << from << "' to '" << to << "' not found in graph." << std::endl;
+            return 0.0; // 路径无效
+        }
+    }
+
+    return total_cost;
 }

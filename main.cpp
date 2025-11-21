@@ -61,10 +61,21 @@ void process_map(const std::string &map_file, const std::string &start_node, con
             return;
         }
 
-        // 计算三种路径
-        paths.time_path = city_map.find_shortest_path(start_node, end_node, WeightMode::TIME);
-        paths.distance_path = city_map.find_shortest_path(start_node, end_node, WeightMode::DISTANCE);
-        paths.balanced_path = city_map.find_shortest_path(start_node, end_node, WeightMode::BALANCED);
+        // 计算三种路径及其指标
+        PathResult time_result = city_map.find_shortest_path(start_node, end_node, WeightMode::TIME);
+        paths.time_path = time_result.path;
+        paths.time_path_time = time_result.cost;  // TIME模式的cost就是时间
+        paths.time_path_distance = city_map.calculate_path_cost(paths.time_path, WeightMode::DISTANCE);
+
+        PathResult distance_result = city_map.find_shortest_path(start_node, end_node, WeightMode::DISTANCE);
+        paths.distance_path = distance_result.path;
+        paths.distance_path_distance = distance_result.cost;  // DISTANCE模式的cost就是距离
+        paths.distance_path_time = city_map.calculate_path_cost(paths.distance_path, WeightMode::TIME);
+
+        PathResult balanced_result = city_map.find_shortest_path(start_node, end_node, WeightMode::BALANCED);
+        paths.balanced_path = balanced_result.path;
+        paths.balanced_path_time = city_map.calculate_path_cost(paths.balanced_path, WeightMode::TIME);
+        paths.balanced_path_distance = city_map.calculate_path_cost(paths.balanced_path, WeightMode::DISTANCE);
 
         // 保存到缓存（如果启用缓存）
         // 注意：即使路径为空（无路径），也应该缓存，避免重复计算
