@@ -7,13 +7,14 @@
 #include "Edge.h"
 #include "config.h"
 
-// 路径结果结构体（包含路径和代价）
+// 路径结果结构体（包含路径和指标）
 struct PathResult
 {
     std::vector<std::string> path;  // 路径节点列表
-    double cost;                     // 路径代价（根据mode不同而不同）
+    double time;                     // 总时间（秒）
+    double distance;                 // 总距离（米）
 
-    PathResult() : cost(0) {}
+    PathResult() : time(0), distance(0) {}
 };
 
 class Graph

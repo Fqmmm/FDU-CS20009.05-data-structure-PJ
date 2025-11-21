@@ -7,26 +7,17 @@
 #include <unordered_map>
 #include <filesystem>
 #include <chrono>
+#include "Graph.h"  // 引入PathResult
 
-// 多路径结构体（存储三种路径及其指标）
+// 多路径结构体（存储三种路径）
 struct MultiPath
 {
-    std::vector<std::string> time_path;      // 时间最短路径
-    double time_path_time;                   // 时间最短路径的时间（秒）
-    double time_path_distance;               // 时间最短路径的距离（米）
-
-    std::vector<std::string> distance_path;  // 距离最短路径
-    double distance_path_time;               // 距离最短路径的时间（秒）
-    double distance_path_distance;           // 距离最短路径的距离（米）
-
-    std::vector<std::string> balanced_path;  // 综合推荐路径
-    double balanced_path_time;               // 综合路径的时间（秒）
-    double balanced_path_distance;           // 综合路径的距离（米）
+    PathResult time_path;      // 时间最短路径
+    PathResult distance_path;  // 距离最短路径
+    PathResult balanced_path;  // 综合推荐路径
 
     // 默认构造函数
-    MultiPath() : time_path_time(0), time_path_distance(0),
-                  distance_path_time(0), distance_path_distance(0),
-                  balanced_path_time(0), balanced_path_distance(0) {}
+    MultiPath() {}
 };
 
 // 文件签名：使用修改时间和文件大小作为轻量级的文件变化检测

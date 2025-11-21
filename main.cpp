@@ -61,21 +61,10 @@ void process_map(const std::string &map_file, const std::string &start_node, con
             return;
         }
 
-        // 计算三种路径及其指标
-        PathResult time_result = city_map.find_shortest_path(start_node, end_node, WeightMode::TIME);
-        paths.time_path = time_result.path;
-        paths.time_path_time = time_result.cost;  // TIME模式的cost就是时间
-        paths.time_path_distance = city_map.calculate_path_cost(paths.time_path, WeightMode::DISTANCE);
-
-        PathResult distance_result = city_map.find_shortest_path(start_node, end_node, WeightMode::DISTANCE);
-        paths.distance_path = distance_result.path;
-        paths.distance_path_distance = distance_result.cost;  // DISTANCE模式的cost就是距离
-        paths.distance_path_time = city_map.calculate_path_cost(paths.distance_path, WeightMode::TIME);
-
-        PathResult balanced_result = city_map.find_shortest_path(start_node, end_node, WeightMode::BALANCED);
-        paths.balanced_path = balanced_result.path;
-        paths.balanced_path_time = city_map.calculate_path_cost(paths.balanced_path, WeightMode::TIME);
-        paths.balanced_path_distance = city_map.calculate_path_cost(paths.balanced_path, WeightMode::DISTANCE);
+        // 计算三种路径（find_shortest_path已自动计算time和distance）
+        paths.time_path = city_map.find_shortest_path(start_node, end_node, WeightMode::TIME);
+        paths.distance_path = city_map.find_shortest_path(start_node, end_node, WeightMode::DISTANCE);
+        paths.balanced_path = city_map.find_shortest_path(start_node, end_node, WeightMode::BALANCED);
 
         // 保存到缓存（如果启用缓存）
         // 注意：即使路径为空（无路径），也应该缓存，避免重复计算
@@ -135,7 +124,7 @@ int main(int argc, char *argv[])
     {
         std::string arg = argv[i];
 
-        if (arg == "--test_path")
+        if (arg == "--test-path")
         {
             if (i + 1 < argc)
             {
@@ -144,12 +133,12 @@ int main(int argc, char *argv[])
             }
             else
             {
-                std::cerr << "Error: --test_path requires a path argument" << std::endl;
+                std::cerr << "Error: --test-path requires a path argument" << std::endl;
                 print_usage();
                 return 1;
             }
         }
-        else if (arg == "--no_cache")
+        else if (arg == "--no-cache")
         {
             use_cache = false;
         }
@@ -169,7 +158,7 @@ int main(int argc, char *argv[])
 
     if (test_path.empty())
     {
-        std::cerr << "Error: --test_path is required" << std::endl;
+        std::cerr << "Error: --test-path is required" << std::endl;
         print_usage();
         return 1;
     }
@@ -206,7 +195,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        std::cout << "\n[Cache] Cache disabled (--no_cache flag set)" << std::endl;
+        std::cout << "\n[Cache] Cache disabled (--no-cache flag set)" << std::endl;
     }
 
     // 处理每个地图文件

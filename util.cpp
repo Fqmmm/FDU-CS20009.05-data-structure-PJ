@@ -100,15 +100,15 @@ bool read_demand(const std::string &filename, std::string &start, std::string &e
 // 打印使用说明
 void print_usage()
 {
-    std::cout << "Usage: .\\pathfinder --test_path <path_to_test_case_directory> [--no_cache]" << std::endl;
+    std::cout << "Usage: .\\pathfinder --test-path <path_to_test_case_directory> [--no-cache]" << std::endl;
     std::cout << "       .\\pathfinder --clear-cache" << std::endl;
     std::cout << "\nOptions:" << std::endl;
-    std::cout << "  --test_path <dir>  Specify the test case directory (required)" << std::endl;
-    std::cout << "  --no_cache         Disable cache and force recalculation (optional)" << std::endl;
+    std::cout << "  --test-path <dir>  Specify the test case directory (required)" << std::endl;
+    std::cout << "  --no-cache         Disable cache and force recalculation (optional)" << std::endl;
     std::cout << "  --clear-cache      Clear all cached results and exit" << std::endl;
     std::cout << "\nExamples:" << std::endl;
-    std::cout << "  .\\pathfinder --test_path Test_Cases/test_cases/shanghai_test_cases/case1_simple" << std::endl;
-    std::cout << "  .\\pathfinder --test_path Test_Cases/test_cases/shanghai_test_cases/case1_simple --no_cache" << std::endl;
+    std::cout << "  .\\pathfinder --test-path Test_Cases/test_cases/shanghai_test_cases/case1_simple" << std::endl;
+    std::cout << "  .\\pathfinder --test-path Test_Cases/test_cases/shanghai_test_cases/case1_simple --no-cache" << std::endl;
     std::cout << "  .\\pathfinder --clear-cache" << std::endl;
 }
 
@@ -137,16 +137,16 @@ void print_multi_paths(const MultiPath &paths)
 {
     // 输出时间最短路径
     std::cout << "\n┌─ Time-Optimized Path (时间最短) ────────────────────" << std::endl;
-    if (!paths.time_path.empty())
+    if (!paths.time_path.path.empty())
     {
         std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.time_path.size(); ++i)
+        for (size_t i = 0; i < paths.time_path.path.size(); ++i)
         {
-            std::cout << paths.time_path[i] << (i == paths.time_path.size() - 1 ? "" : " --> ");
+            std::cout << paths.time_path.path[i] << (i == paths.time_path.path.size() - 1 ? "" : " --> ");
         }
         std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.time_path_time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.time_path_distance << " meters" << std::endl;
+        std::cout << "│ Total Time: " << paths.time_path.time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.time_path.distance << " meters" << std::endl;
     }
     else
     {
@@ -156,16 +156,16 @@ void print_multi_paths(const MultiPath &paths)
 
     // 输出距离最短路径
     std::cout << "\n┌─ Distance-Optimized Path (距离最短) ────────────────" << std::endl;
-    if (!paths.distance_path.empty())
+    if (!paths.distance_path.path.empty())
     {
         std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.distance_path.size(); ++i)
+        for (size_t i = 0; i < paths.distance_path.path.size(); ++i)
         {
-            std::cout << paths.distance_path[i] << (i == paths.distance_path.size() - 1 ? "" : " --> ");
+            std::cout << paths.distance_path.path[i] << (i == paths.distance_path.path.size() - 1 ? "" : " --> ");
         }
         std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.distance_path_time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.distance_path_distance << " meters" << std::endl;
+        std::cout << "│ Total Time: " << paths.distance_path.time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.distance_path.distance << " meters" << std::endl;
     }
     else
     {
@@ -175,16 +175,16 @@ void print_multi_paths(const MultiPath &paths)
 
     // 输出综合推荐路径
     std::cout << "\n┌─ Balanced Path (综合推荐) ──────────────────────────" << std::endl;
-    if (!paths.balanced_path.empty())
+    if (!paths.balanced_path.path.empty())
     {
         std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.balanced_path.size(); ++i)
+        for (size_t i = 0; i < paths.balanced_path.path.size(); ++i)
         {
-            std::cout << paths.balanced_path[i] << (i == paths.balanced_path.size() - 1 ? "" : " --> ");
+            std::cout << paths.balanced_path.path[i] << (i == paths.balanced_path.path.size() - 1 ? "" : " --> ");
         }
         std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.balanced_path_time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.balanced_path_distance << " meters" << std::endl;
+        std::cout << "│ Total Time: " << paths.balanced_path.time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << paths.balanced_path.distance << " meters" << std::endl;
     }
     else
     {

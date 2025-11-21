@@ -309,8 +309,9 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
     // 翻转路径
     std::reverse(result.path.begin(), result.path.end());
 
-    // 设置代价
-    result.cost = distances[end];
+    // 计算时间和距离（总是计算两个指标）
+    result.time = calculate_path_cost(result.path, WeightMode::TIME);
+    result.distance = calculate_path_cost(result.path, WeightMode::DISTANCE);
 
     return result;
 }
