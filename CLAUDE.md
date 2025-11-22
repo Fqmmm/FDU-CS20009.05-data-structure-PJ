@@ -60,7 +60,16 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `distance`（double）：总距离（米）
 - **设计理念**：无论使用哪种权重模式（TIME/DISTANCE/BALANCED）进行路径查找，PathResult总是包含完整的时间和距离两个指标，方便用户全面对比不同路径的优劣
 
-**2. Graph类（Graph.h/cpp）**
+**2. MultiPath结构体（Graph.h）**
+- 多路径查询结果的组合表示
+- **成员变量**：
+  - `time_path`（PathResult）：时间最短路径，包含path、time、distance
+  - `distance_path`（PathResult）：距离最短路径，包含path、time、distance
+  - `balanced_path`（PathResult）：综合推荐路径，包含path、time、distance
+- **设计理念**：使用三个PathResult组合，消除数据重复，结构清晰
+- **位置说明**：与PathResult一起定义在Graph.h中，因为它们都是路径规划的核心数据结构，语义上属于图算法的输出
+
+**3. Graph类（Graph.h/cpp）**
 - 使用邻接表表示：`unordered_map<string, vector<Edge>>`
 - 节点名称为中文地名（UTF-8编码）
 - `from_csv()`：从CSV文件加载路网，支持动态表头解析
@@ -77,7 +86,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `WeightRange`（嵌套结构体）：存储时间和距离的min/max范围，用于归一化
   - `calculate_weight_range()`：计算所有边的时间和距离范围
 
-**3. Edge类（Edge.h/cpp）**
+**4. Edge类（Edge.h/cpp）**
 - **设计理念**：纯数据容器，不包含计算逻辑（计算逻辑分离到util模块）
 - **成员变量**：
   - 基本属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
@@ -89,7 +98,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - DISTANCE模式返回length
   - BALANCED模式返回balanced_score
 
-**4. Config（config.h/cpp）**
+**5. Config（config.h/cpp）**
 - **BPRConfig**：拥堵建模的全局参数
   - alpha = 0.15（拥堵敏感系数）
   - beta = 4.0（拥堵指数）
@@ -102,20 +111,13 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - max_size = 50（LRU缓存最大条目数）
   - cache_dir = ".cache"（缓存目录路径）
 
-**5. PathCache类（Cache.h/cpp）**
+**6. PathCache类（Cache.h/cpp）**
 - 实现持久化LRU（Least Recently Used）缓存机制
 - **核心功能**：
   - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径及其指标）
   - `put()`：保存新计算的MultiPath到缓存
   - `clear()`：清空所有缓存
-- **MultiPath结构**：
-  - `time_path`（PathResult）：时间最短路径，包含path、time、distance
-  - `distance_path`（PathResult）：距离最短路径，包含path、time、distance
-  - `balanced_path`（PathResult）：综合推荐路径，包含path、time、distance
-  - **设计理念**：使用三个PathResult组合，消除数据重复，结构更清晰
-  - 每种路径都存储完整的时间和距离指标，方便用户全面对比
-  - 三种路径及其指标一次查询全部计算，一起缓存
-  - **空路径缓存**：即使路径不存在（三个路径都为空），也会被缓存，避免重复计算
+- **依赖说明**：Cache.h 引用 Graph.h 以使用 PathResult 和 MultiPath，但只负责缓存机制，不涉及路径计算逻辑
 - **文件签名机制（FileSignature）**：
   - 使用文件修改时间 + 文件大小检测文件变化
   - **路径规范化**：使用`std::filesystem::canonical()`将相对路径和绝对路径统一为规范形式
@@ -128,12 +130,21 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `.cache/cache_index.txt`：缓存索引文件（LRU顺序和元数据）
   - `.cache/paths/*.cache`：具体的路径缓存文件
 
-**6. util.h/cpp（工具函数模块）**
+**7. util.h/cpp（工具函数模块）**
 - **BPR拥堵函数**：
-  - `calculate_bpr_congestion_factor()`：计算拥堵系数 = 1 + α × (V/C)^β
-  - `calculate_free_flow_time()`：计算自由流通行时间 = 距离 / 速度
-  - `calculate_travel_time()`：计算实际通行时间 = 自由流时间 × 拥堵系数
-  - BPR公式：T = T₀ × [1 + α × (V/C)^β]，其中T₀为自由流时间，V/C为流量容量比
+  - `calculate_bpr_congestion_factor(current_vehicles, lanes, length_meters, speed_limit_kmh)`：计算拥堵系数 = 1 + α × (V/C)^β
+    - **重要说明**：current_vehicles是道路上的车辆数（occupancy，某一时刻道路上的静态车辆数）
+    - BPR公式需要的是交通流量（flow，单位时间通过横截面的车辆数，单位：veh/h）
+    - **转换公式**：flow = occupancy / travel_time_hours
+    - 函数内部自动完成occupancy到flow的转换，确保V/C比的单位正确
+  - `calculate_free_flow_time()`：计算自由流通行时间（秒） = 距离 / 速度
+  - `calculate_travel_time()`：计算实际通行时间（秒） = 自由流时间 × 拥堵系数
+  - **BPR公式详解**：T = T₀ × [1 + α × (V/C)^β]
+    - T₀：自由流通行时间（无拥堵时的理想通行时间）
+    - V：交通流量（veh/h）= 车辆数 / 通行时间（小时）
+    - C：道路容量（veh/h）= 车道数 × 单车道容量（1800 veh/h/lane）
+    - V/C：流量容量比（无量纲）
+    - α = 0.15，β = 4.0（BPR标准参数）
 - **字符串工具**：
   - `trim()`：移除字符串首尾空白字符
 - **文件操作工具**：
@@ -145,7 +156,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `print_multi_paths()`：打印所有三种路径及其时间和距离指标
   - `print_cache_statistics()`：打印缓存统计信息
 
-**7. main.cpp**
+**8. main.cpp**
 - 程序入口和主流程控制
 - 命令行参数解析（--test-path, --no-cache, --clear-cache）
 - Windows控制台UTF-8编码设置（`chcp 65001`）

@@ -17,6 +17,17 @@ struct PathResult
     PathResult() : time(0), distance(0) {}
 };
 
+// 多路径结构体（存储三种路径）
+struct MultiPath
+{
+    PathResult time_path;      // 时间最短路径
+    PathResult distance_path;  // 距离最短路径
+    PathResult balanced_path;  // 综合推荐路径
+
+    // 默认构造函数
+    MultiPath() {}
+};
+
 class Graph
 {
 public:

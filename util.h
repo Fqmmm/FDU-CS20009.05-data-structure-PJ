@@ -28,7 +28,12 @@ void print_cache_statistics(PathCache *cache);
 
 // BPR拥堵函数
 // 计算拥堵系数：1 + α × (V/C)^β
-double calculate_bpr_congestion_factor(int current_vehicles, int lanes);
+// current_vehicles: 道路上的车辆数（occupancy）
+// lanes: 车道数
+// length_meters: 道路长度（米）
+// speed_limit_kmh: 道路限速（km/h）
+double calculate_bpr_congestion_factor(int current_vehicles, int lanes,
+                                       double length_meters, double speed_limit_kmh);
 
 // 计算自由流通行时间（秒）
 double calculate_free_flow_time(double length_meters, double speed_limit_kmh);

@@ -214,18 +214,29 @@ void print_cache_statistics(PathCache *cache)
 // BPR拥堵函数实现
 
 // 计算拥堵系数：1 + α × (V/C)^β
-double calculate_bpr_congestion_factor(int current_vehicles, int lanes)
+// 注意：current_vehicles是道路上的车辆数（occupancy），需要转换为流量（flow）
+double calculate_bpr_congestion_factor(int current_vehicles, int lanes,
+                                       double length_meters, double speed_limit_kmh)
 {
-    if (lanes <= 0)
+    if (lanes <= 0 || speed_limit_kmh <= 0)
     {
         return std::numeric_limits<double>::infinity();
     }
+
+    // 计算自由流通行时间（小时）
+    double speed_mps = speed_limit_kmh * 1000.0 / 3600.0;
+    double travel_time_sec = length_meters / speed_mps;
+    double travel_time_hour = travel_time_sec / 3600.0;
+
+    // 将occupancy转换为flow（veh/h）
+    // flow = occupancy / travel_time
+    double volume = static_cast<double>(current_vehicles) / travel_time_hour;
 
     // 计算道路容量（每小时）
     double capacity = lanes * BPRConfig::lane_capacity;
 
     // 计算流量/容量比
-    double volume_capacity_ratio = static_cast<double>(current_vehicles) / capacity;
+    double volume_capacity_ratio = volume / capacity;
 
     // BPR 公式：1 + α × (V/C)^β
     return 1.0 + BPRConfig::alpha * std::pow(volume_capacity_ratio, BPRConfig::beta);
@@ -248,6 +259,6 @@ double calculate_free_flow_time(double length_meters, double speed_limit_kmh)
 double calculate_travel_time(double length_meters, double speed_limit_kmh, int lanes, int current_vehicles)
 {
     double free_flow_time = calculate_free_flow_time(length_meters, speed_limit_kmh);
-    double congestion_factor = calculate_bpr_congestion_factor(current_vehicles, lanes);
+    double congestion_factor = calculate_bpr_congestion_factor(current_vehicles, lanes, length_meters, speed_limit_kmh);
     return free_flow_time * congestion_factor;
 }

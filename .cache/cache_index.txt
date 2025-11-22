@@ -1,9 +1,16 @@
 # PathCache Index File
 max_size: 50
-entry_count: 5
-lru_order: 96273212eee84aea,c411b0c16f35c454,6191d4fd9bc1078d,2daba16ec04159dc,84b2a660e446b80a
-entry: 96273212eee84aea|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_1400.csv|-4678677486000000000|1141|.cache/paths/96273212eee84aea.cache|1763715255243968200
-entry: c411b0c16f35c454|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_0800.csv|-4678677486000000000|1154|.cache/paths/c411b0c16f35c454.cache|1763715255242602100
-entry: 84b2a660e446b80a|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_0800.csv|-4678677486000000000|1502|.cache/paths/84b2a660e446b80a.cache|1763715208195585700
-entry: 2daba16ec04159dc|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1400.csv|-4678677486000000000|1489|.cache/paths/2daba16ec04159dc.cache|1763715208197556400
-entry: 6191d4fd9bc1078d|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1830.csv|-4678677486000000000|1502|.cache/paths/6191d4fd9bc1078d.cache|1763715208199360300
+entry_count: 12
+lru_order: 7c54d96dcc0e859d,850b9bd5498b720d,f8262c8e86760992,bf48f5245deb8ee6,018e160d07583a89,03cbf495715dbe22,6191d4fd9bc1078d,2daba16ec04159dc,84b2a660e446b80a,96273212eee84aea,c411b0c16f35c454,df447274bb19110f
+entry: 850b9bd5498b720d|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_1800.csv|-4678676557000000000|38519|.cache/paths/850b9bd5498b720d.cache|1763822613171314000
+entry: f8262c8e86760992|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_1500.csv|-4678676557000000000|38506|.cache/paths/f8262c8e86760992.cache|1763822613167627500
+entry: bf48f5245deb8ee6|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_1200.csv|-4678676557000000000|38519|.cache/paths/bf48f5245deb8ee6.cache|1763822613163944700
+entry: 018e160d07583a89|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_0900.csv|-4678676557000000000|38519|.cache/paths/018e160d07583a89.cache|1763822613159750700
+entry: 96273212eee84aea|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_1400.csv|-4678677486000000000|1141|.cache/paths/96273212eee84aea.cache|1763822553153545600
+entry: c411b0c16f35c454|上海科技馆|上海博物馆|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case2_medium\map_0800.csv|-4678677486000000000|1154|.cache/paths/c411b0c16f35c454.cache|1763822553152390800
+entry: df447274bb19110f|上海世纪公园|复旦大学（邯郸校区）|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case1_simple\map_1200.csv|-4678677486000000000|1151|.cache/paths/df447274bb19110f.cache|1763822511254613600
+entry: 84b2a660e446b80a|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_0800.csv|-4678677486000000000|1502|.cache/paths/84b2a660e446b80a.cache|1763822571864368300
+entry: 7c54d96dcc0e859d|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_2000.csv|-4678676557000000000|38519|.cache/paths/7c54d96dcc0e859d.cache|1763822613176177700
+entry: 2daba16ec04159dc|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1400.csv|-4678677486000000000|1489|.cache/paths/2daba16ec04159dc.cache|1763822571866639900
+entry: 03cbf495715dbe22|医院F|酒店D|D:\Jimmy\_data_structure\PJ\Test_Cases\large_scale_cases\large_scale_case_example\map_0700.csv|-4678676557000000000|38519|.cache/paths/03cbf495715dbe22.cache|1763822613155933600
+entry: 6191d4fd9bc1078d|上海科技馆|上海野生动物园|D:\Jimmy\_data_structure\PJ\Test_Cases\test_cases\shanghai_test_cases\case3_complex\map_1830.csv|-4678677486000000000|1502|.cache/paths/6191d4fd9bc1078d.cache|1763822571868639900

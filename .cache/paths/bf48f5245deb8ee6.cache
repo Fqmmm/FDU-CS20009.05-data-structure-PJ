@@ -1,0 +1,28 @@
+# TIME
+time: 356.474
+distance: 4618
+医院F
+景点J
+商场K
+学校D
+酒店D
+# DISTANCE
+time: 394.423
+distance: 3871
+医院F
+公园H
+车站A
+商场N
+工厂J
+车站G
+酒店D
+# BALANCED
+time: 385.127
+distance: 4057
+医院F
+车站B
+车站A
+商场N
+工厂J
+车站G
+酒店D
