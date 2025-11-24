@@ -22,7 +22,7 @@ bool read_demand(const std::string &filename, std::string &start, std::string &e
 
 // 输出工具函数
 void print_usage();
-void print_single_path(const std::string &title, const std::vector<std::string> &path);
+void print_single_path(const std::string &title, const PathResult &result);
 void print_multi_paths(const MultiPath &paths);
 void print_cache_statistics(PathCache *cache);
 

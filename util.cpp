@@ -113,17 +113,19 @@ void print_usage()
 }
 
 // 打印单条路径（带装饰边框）
-void print_single_path(const std::string &title, const std::vector<std::string> &path)
+void print_single_path(const std::string &title, const PathResult &result)
 {
-    std::cout << "\n┌─ " << title << " ────────────────────" << std::endl;
-    if (!path.empty())
+    std::cout << "\n┌─ " << title << " ──────────────────────────────────────────" << std::endl;
+    if (!result.path.empty())
     {
         std::cout << "│ Path: ";
-        for (size_t i = 0; i < path.size(); ++i)
+        for (size_t i = 0; i < result.path.size(); ++i)
         {
-            std::cout << path[i] << (i == path.size() - 1 ? "" : " --> ");
+            std::cout << result.path[i] << (i == result.path.size() - 1 ? "" : " --> ");
         }
         std::cout << std::endl;
+        std::cout << "│ Total Time: " << result.time << " seconds" << std::endl;
+        std::cout << "│ Total Distance: " << result.distance << " meters" << std::endl;
     }
     else
     {
@@ -135,63 +137,9 @@ void print_single_path(const std::string &title, const std::vector<std::string> 
 // 打印所有三种路径
 void print_multi_paths(const MultiPath &paths)
 {
-    // 输出时间最短路径
-    std::cout << "\n┌─ Time-Optimized Path (时间最短) ────────────────────" << std::endl;
-    if (!paths.time_path.path.empty())
-    {
-        std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.time_path.path.size(); ++i)
-        {
-            std::cout << paths.time_path.path[i] << (i == paths.time_path.path.size() - 1 ? "" : " --> ");
-        }
-        std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.time_path.time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.time_path.distance << " meters" << std::endl;
-    }
-    else
-    {
-        std::cout << "│ No path found." << std::endl;
-    }
-    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
-
-    // 输出距离最短路径
-    std::cout << "\n┌─ Distance-Optimized Path (距离最短) ────────────────" << std::endl;
-    if (!paths.distance_path.path.empty())
-    {
-        std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.distance_path.path.size(); ++i)
-        {
-            std::cout << paths.distance_path.path[i] << (i == paths.distance_path.path.size() - 1 ? "" : " --> ");
-        }
-        std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.distance_path.time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.distance_path.distance << " meters" << std::endl;
-    }
-    else
-    {
-        std::cout << "│ No path found." << std::endl;
-    }
-    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
-
-    // 输出综合推荐路径
-    std::cout << "\n┌─ Balanced Path (综合推荐) ──────────────────────────" << std::endl;
-    if (!paths.balanced_path.path.empty())
-    {
-        std::cout << "│ Path: ";
-        for (size_t i = 0; i < paths.balanced_path.path.size(); ++i)
-        {
-            std::cout << paths.balanced_path.path[i] << (i == paths.balanced_path.path.size() - 1 ? "" : " --> ");
-        }
-        std::cout << std::endl;
-        std::cout << "│ Total Time: " << paths.balanced_path.time << " seconds" << std::endl;
-        std::cout << "│ Total Distance: " << paths.balanced_path.distance << " meters" << std::endl;
-    }
-    else
-    {
-        std::cout << "│ No path found." << std::endl;
-    }
-    std::cout << "└─────────────────────────────────────────────────────" << std::endl;
-
+    print_single_path("时间最短", paths.time_path);
+    print_single_path("距离最短", paths.distance_path);
+    print_single_path("综合推荐", paths.balanced_path);
     std::cout << "\n";
 }
 
@@ -212,9 +160,7 @@ void print_cache_statistics(PathCache *cache)
 }
 
 // BPR拥堵函数实现
-
-// 计算拥堵系数：1 + α × (V/C)^β
-// 注意：current_vehicles是道路上的车辆数（occupancy），需要转换为流量（flow）
+// 拥堵系数：1 + α × (V/C)^β
 double calculate_bpr_congestion_factor(int current_vehicles, int lanes,
                                        double length_meters, double speed_limit_kmh)
 {

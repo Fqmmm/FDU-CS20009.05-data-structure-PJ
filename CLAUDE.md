@@ -152,8 +152,12 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `read_demand()`：从demand文件读取起点和终点
 - **输出工具**：
   - `print_usage()`：打印命令行使用说明
-  - `print_single_path()`：打印单条路径（带装饰边框）
-  - `print_multi_paths()`：打印所有三种路径及其时间和距离指标
+  - `print_single_path(title, PathResult)`：打印单条路径（带装饰边框），包含路径、时间和距离
+    - 接收PathResult结构体，自动输出完整信息
+    - 标题使用四字中文（如"时间最短"），确保边框对齐
+  - `print_multi_paths(MultiPath)`：打印所有三种路径及其指标
+    - 内部复用`print_single_path()`三次，避免代码重复
+    - 输出标题："时间最短"、"距离最短"、"综合推荐"
   - `print_cache_statistics()`：打印缓存统计信息
 
 **8. main.cpp**
@@ -461,19 +465,19 @@ balanced_weight = α × normalized_time + (1-α) × normalized_distance
 程序为每个地图查询输出三个路径及其指标，格式如下：
 
 ```
-┌─ Time-Optimized Path (时间最短) ────────────────────
+┌─ 时间最短 ──────────────────────────────────────────
 │ Path: 起点 --> 中转1 --> 中转2 --> 终点
 │ Total Time: 1048.95 seconds
 │ Total Distance: 19710 meters
 └─────────────────────────────────────────────────────
 
-┌─ Distance-Optimized Path (距离最短) ────────────────
+┌─ 距离最短 ──────────────────────────────────────────
 │ Path: 起点 --> 中转A --> 中转B --> 终点
 │ Total Time: 1050.20 seconds
 │ Total Distance: 19500 meters
 └─────────────────────────────────────────────────────
 
-┌─ Balanced Path (综合推荐) ──────────────────────────
+┌─ 综合推荐 ──────────────────────────────────────────
 │ Path: 起点 --> 中转X --> 中转Y --> 终点
 │ Total Time: 1049.50 seconds
 │ Total Distance: 19600 meters
@@ -482,6 +486,8 @@ balanced_weight = α × normalized_time + (1-α) × normalized_distance
 
 **设计原则**：
 - **所有路径都显示时间和距离**：方便用户全面对比三种路径的优劣
+- **标题简洁统一**：使用四字中文标题（"时间最短"、"距离最短"、"综合推荐"），确保边框整齐对齐
+- **代码复用**：`print_multi_paths()`内部调用`print_single_path()`三次，消除代码重复
 - 时间最短路径：通常时间最少，但距离可能较长
 - 距离最短路径：通常距离最短，但时间可能较长
 - 综合推荐路径：在时间和距离之间取得平衡

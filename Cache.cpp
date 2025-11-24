@@ -5,10 +5,6 @@
 #include <iomanip>
 #include <functional>
 
-// ============================================================================
-// FileSignature 实现
-// ============================================================================
-
 FileSignature::FileSignature(const std::string &file_path)
 {
     try
@@ -63,10 +59,6 @@ std::string FileSignature::to_string() const
     oss << path << "|" << mtime.time_since_epoch().count() << "|" << size;
     return oss.str();
 }
-
-// ============================================================================
-// PathCache 实现
-// ============================================================================
 
 PathCache::PathCache(const std::string &cache_dir, size_t max_size)
     : cache_dir(cache_dir), max_size(max_size), hit_count(0), miss_count(0)

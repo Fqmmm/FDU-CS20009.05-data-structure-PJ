@@ -7,14 +7,14 @@
 #include <unordered_map>
 #include <filesystem>
 #include <chrono>
-#include "Graph.h"  // 引入PathResult和MultiPath
+#include "Graph.h"  
 
 // 文件签名：使用修改时间和文件大小作为轻量级的文件变化检测
 struct FileSignature
 {
-    std::string path;
-    std::filesystem::file_time_type mtime;
-    uintmax_t size;
+    std::string path;   // 文件路径
+    std::filesystem::file_time_type mtime;  // 修改时间
+    uintmax_t size;     // 文件大小
 
     FileSignature() : path(""), mtime(), size(0) {}
 
@@ -30,11 +30,11 @@ struct FileSignature
 // 缓存条目
 struct CacheEntry
 {
-    std::string start;
-    std::string end;
+    std::string start;  // 起点
+    std::string end;    // 终点
     FileSignature csv_signature;
     std::string cache_file; // 缓存文件路径
-    std::chrono::system_clock::time_point created_at;
+    std::chrono::system_clock::time_point created_at;   // 创建时间
 
     CacheEntry() : start(""), end(""), csv_signature(), cache_file(""), created_at() {}
 };
@@ -43,7 +43,6 @@ struct CacheEntry
 class PathCache
 {
 public:
-    // 构造函数
     // cache_dir: 缓存目录路径
     // max_size: LRU缓存最大条目数
     PathCache(const std::string &cache_dir = ".cache", size_t max_size = 50);
