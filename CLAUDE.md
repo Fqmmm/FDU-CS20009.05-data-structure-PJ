@@ -1,3 +1,4 @@
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -23,12 +24,12 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 
 **基本运行：**
 ```bash
-.\pathfinder.exe --test-path <测试用例目录路径>
+.\pathfinder.exe --test_path <测试用例目录路径>
 ```
 
 **运行（禁用缓存）：**
 ```bash
-.\pathfinder.exe --test-path <测试用例目录路径> --no-cache
+.\pathfinder.exe --test_path <测试用例目录路径> --no_cache
 ```
 
 **清空缓存：**
@@ -39,10 +40,10 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 **示例：**
 ```bash
 # 正常运行（启用缓存）
-.\pathfinder.exe --test-path Test_Cases\test_cases\shanghai_test_cases\case1_simple
+.\pathfinder.exe --test_path Test_Cases\test_cases\shanghai_test_cases\case1_simple
 
 # 强制重新计算（禁用缓存）
-.\pathfinder.exe --test-path Test_Cases\test_cases\shanghai_test_cases\case1_simple --no-cache
+.\pathfinder.exe --test_path Test_Cases\test_cases\shanghai_test_cases\case1_simple --no_cache
 
 # 清空所有缓存
 .\pathfinder.exe --clear-cache
@@ -52,53 +53,23 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 
 ### 核心组件
 
-**1. PathResult结构体（Graph.h）**
-- 路径查询结果的统一表示
-- **成员变量**：
-  - `path`（vector<string>）：路径节点列表
-  - `time`（double）：总时间（秒）
-  - `distance`（double）：总距离（米）
-- **设计理念**：无论使用哪种权重模式（TIME/DISTANCE/BALANCED）进行路径查找，PathResult总是包含完整的时间和距离两个指标，方便用户全面对比不同路径的优劣
-
-**2. MultiPath结构体（Graph.h）**
-- 多路径查询结果的组合表示
-- **成员变量**：
-  - `time_path`（PathResult）：时间最短路径，包含path、time、distance
-  - `distance_path`（PathResult）：距离最短路径，包含path、time、distance
-  - `balanced_path`（PathResult）：综合推荐路径，包含path、time、distance
-- **设计理念**：使用三个PathResult组合，消除数据重复，结构清晰
-- **位置说明**：与PathResult一起定义在Graph.h中，因为它们都是路径规划的核心数据结构，语义上属于图算法的输出
-
-**3. Graph类（Graph.h/cpp）**
+**1. Graph类（Graph.h/cpp）**
 - 使用邻接表表示：`unordered_map<string, vector<Edge>>`
 - 节点名称为中文地名（UTF-8编码）
 - `from_csv()`：从CSV文件加载路网，支持动态表头解析
-  - **三遍处理**：第一遍计算所有边的time字段，第二遍计算归一化范围，第三遍计算balanced_score
-  - 预计算Edge的time和balanced_score字段，避免运行时重复计算
-- `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，返回PathResult
-  - `WeightMode::TIME`：时间最短（使用预计算的通行时间）
+- `find_shortest_path(WeightMode)`：实现优先队列优化的Dijkstra算法，支持三种权重模式
+  - `WeightMode::TIME`：时间最短（BPR计算的通行时间）
   - `WeightMode::DISTANCE`：距离最短（道路长度）
-  - `WeightMode::BALANCED`：综合推荐（使用预计算的归一化加权平均）
-  - 返回`PathResult`结构体，**自动计算并填充time和distance两个字段**
-  - 优化：利用calculate_path_cost()直接计算两个指标，无需调用方额外计算
-- `calculate_path_cost()`：计算给定路径在指定权重模式下的总代价
-- **私有成员**：
-  - `WeightRange`（嵌套结构体）：存储时间和距离的min/max范围，用于归一化
-  - `calculate_weight_range()`：计算所有边的时间和距离范围
+  - `WeightMode::BALANCED`：综合推荐（归一化加权平均）
+- `calculate_weight_range()`：计算所有边的时间和距离范围，用于归一化
+- `calculate_edge_weight()`：根据权重模式计算边的权重
 
-**4. Edge类（Edge.h/cpp）**
-- **设计理念**：纯数据容器，不包含计算逻辑（计算逻辑分离到util模块）
-- **成员变量**：
-  - 基本属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
-  - 预计算字段：
-    - `time`：通行时间（秒）= 自由流时间 × 拥堵系数，在Graph::from_csv()中计算
-    - `balanced_score`：综合评分 = α × normalized_time + (1-α) × normalized_distance，在Graph::from_csv()中计算
-- `get_weight(WeightMode)`：根据权重模式返回对应的预计算权重值
-  - TIME模式返回time
-  - DISTANCE模式返回length
-  - BALANCED模式返回balanced_score
+**2. Edge类（Edge.h/cpp）**
+- 表示道路，包含属性：destination（目标节点）、length（长度）、speed_limit（限速）、lanes（车道数）、current_vehicles（当前车辆数）
+- `calculate_weight()`：使用BPR拥堵函数计算通行时间
+- BPR公式：T = T₀ × [1 + α × (V/C)^β]，其中T₀为自由流时间，V/C为流量容量比
 
-**5. Config（config.h/cpp）**
+**3. Config（config.h/cpp）**
 - **BPRConfig**：拥堵建模的全局参数
   - alpha = 0.15（拥堵敏感系数）
   - beta = 4.0（拥堵指数）
@@ -111,13 +82,18 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - max_size = 50（LRU缓存最大条目数）
   - cache_dir = ".cache"（缓存目录路径）
 
-**6. PathCache类（Cache.h/cpp）**
+**4. PathCache类（Cache.h/cpp）**
 - 实现持久化LRU（Least Recently Used）缓存机制
 - **核心功能**：
-  - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径及其指标）
+  - `get()`：查询缓存，返回已保存的MultiPath结果（包含三种路径）
   - `put()`：保存新计算的MultiPath到缓存
   - `clear()`：清空所有缓存
-- **依赖说明**：Cache.h 引用 Graph.h 以使用 PathResult 和 MultiPath，但只负责缓存机制，不涉及路径计算逻辑
+- **MultiPath结构**：
+  - `time_path`：时间最短路径
+  - `distance_path`：距离最短路径
+  - `balanced_path`：综合推荐路径
+  - 三种路径一次查询全部计算，一起缓存
+  - **空路径缓存**：即使路径不存在（三个路径都为空），也会被缓存，避免重复计算
 - **文件签名机制（FileSignature）**：
   - 使用文件修改时间 + 文件大小检测文件变化
   - **路径规范化**：使用`std::filesystem::canonical()`将相对路径和绝对路径统一为规范形式
@@ -130,21 +106,7 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `.cache/cache_index.txt`：缓存索引文件（LRU顺序和元数据）
   - `.cache/paths/*.cache`：具体的路径缓存文件
 
-**7. util.h/cpp（工具函数模块）**
-- **BPR拥堵函数**：
-  - `calculate_bpr_congestion_factor(current_vehicles, lanes, length_meters, speed_limit_kmh)`：计算拥堵系数 = 1 + α × (V/C)^β
-    - **重要说明**：current_vehicles是道路上的车辆数（occupancy，某一时刻道路上的静态车辆数）
-    - BPR公式需要的是交通流量（flow，单位时间通过横截面的车辆数，单位：veh/h）
-    - **转换公式**：flow = occupancy / travel_time_hours
-    - 函数内部自动完成occupancy到flow的转换，确保V/C比的单位正确
-  - `calculate_free_flow_time()`：计算自由流通行时间（秒） = 距离 / 速度
-  - `calculate_travel_time()`：计算实际通行时间（秒） = 自由流时间 × 拥堵系数
-  - **BPR公式详解**：T = T₀ × [1 + α × (V/C)^β]
-    - T₀：自由流通行时间（无拥堵时的理想通行时间）
-    - V：交通流量（veh/h）= 车辆数 / 通行时间（小时）
-    - C：道路容量（veh/h）= 车道数 × 单车道容量（1800 veh/h/lane）
-    - V/C：流量容量比（无量纲）
-    - α = 0.15，β = 4.0（BPR标准参数）
+**5. util.h/cpp（工具函数模块）**
 - **字符串工具**：
   - `trim()`：移除字符串首尾空白字符
 - **文件操作工具**：
@@ -152,26 +114,18 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   - `read_demand()`：从demand文件读取起点和终点
 - **输出工具**：
   - `print_usage()`：打印命令行使用说明
-  - `print_single_path(title, PathResult)`：打印单条路径（带装饰边框），包含路径、时间和距离
-    - 接收PathResult结构体，自动输出完整信息
-    - 标题使用四字中文（如"时间最短"），确保边框对齐
-  - `print_multi_paths(MultiPath)`：打印所有三种路径及其指标
-    - 内部复用`print_single_path()`三次，避免代码重复
-    - 输出标题："时间最短"、"距离最短"、"综合推荐"
+  - `print_single_path()`：打印单条路径（带装饰边框）
+  - `print_multi_paths()`：打印所有三种路径
   - `print_cache_statistics()`：打印缓存统计信息
 
-**8. main.cpp**
+**6. main.cpp**
 - 程序入口和主流程控制
-- 命令行参数解析（--test-path, --no-cache, --clear-cache）
+- 命令行参数解析（--test_path, --no_cache, --clear-cache）
 - Windows控制台UTF-8编码设置（`chcp 65001`）
 - 缓存对象创建和生命周期管理
 - 调用`process_map()`处理每个地图文件
 - **核心函数**：
   - `process_map()`：处理单个地图文件，执行缓存查询/路径计算/结果输出
-  - **路径计算简化**：直接调用`find_shortest_path()`三次，返回的PathResult已包含完整的时间和距离信息
-    - 旧逻辑：需要6次`calculate_path_cost()`调用来计算指标
-    - 新逻辑：`find_shortest_path()`自动填充time和distance，无需额外计算
-    - 代码更简洁，性能相同（因为find_shortest_path内部调用了calculate_path_cost）
 
 ### 数据流
 
@@ -187,10 +141,9 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
    - **路径计算**（缓存未命中或禁用缓存）：
      - Graph加载CSV，动态解析列
      - 分别运行三次Dijkstra算法，使用不同的WeightMode：
-       - `WeightMode::TIME`：计算时间最短路径，返回PathResult（自动填充time和distance）
-       - `WeightMode::DISTANCE`：计算距离最短路径，返回PathResult（自动填充time和distance）
-       - `WeightMode::BALANCED`：计算综合推荐路径，返回PathResult（自动填充time和distance）
-     - 三个PathResult组合成MultiPath
+       - `WeightMode::TIME`：计算时间最短路径
+       - `WeightMode::DISTANCE`：计算距离最短路径
+       - `WeightMode::BALANCED`：计算综合推荐路径（先归一化，再加权平均）
      - 将MultiPath结果保存到缓存（如果启用）
    - **输出三种路径**：
      - 时间最短路径（Time-Optimized Path）
@@ -214,16 +167,14 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
 - 到达目标节点时提前终止
 - 通过predecessors映射重建路径
 - 无路径时返回空vector
-- **权重获取**：调用`edge.get_weight(mode)`获取预计算的权重值
 - **多种权重模式**：
-  - TIME模式：使用edge.time（预计算的BPR通行时间）
-  - DISTANCE模式：使用edge.length（道路长度）
-  - BALANCED模式：使用edge.balanced_score（预计算的归一化加权平均）
-- **三遍预计算**（在Graph::from_csv()中）：
-  - 第一遍：计算所有edge.time = 自由流时间 × 拥堵系数
-  - 第二遍：计算所有边的时间和距离范围（min/max），用于归一化
-  - 第三遍：计算所有edge.balanced_score = α × normalized_time + (1-α) × normalized_distance
-  - 默认权重：α=0.6（时间），1-α=0.4（距离）
+  - TIME模式：直接使用edge.weight（BPR计算的通行时间）
+  - DISTANCE模式：直接使用edge.length（道路长度）
+  - BALANCED模式：归一化 + 加权平均
+    - 步骤1：扫描所有边，计算时间和距离的min/max
+    - 步骤2：归一化 = (value - min) / (max - min)，映射到[0, 1]
+    - 步骤3：weighted_score = α × norm_time + (1-α) × norm_distance
+    - 默认权重：α=0.6（时间），1-α=0.4（距离）
 
 **编码处理：**
 - 所有中文文本使用UTF-8编码
@@ -246,31 +197,24 @@ g++ -std=c++17 main.cpp Graph.cpp Edge.cpp config.cpp Cache.cpp util.cpp -o path
   lru_order: key1,key2,key3,...
   entry: key|start|end|csv_path|mtime|size|cache_file|created_time
   ```
-- **缓存文件格式**（纯文本，存储三种路径及指标）：
+- **缓存文件格式**（纯文本，存储三种路径）：
   ```
   # TIME
-  time: 1048.95
-  distance: 19710
   节点1
   节点2
   节点3
   # DISTANCE
-  time: 1050.20
-  distance: 19500
   节点1
   节点2
   节点3
   # BALANCED
-  time: 1049.50
-  distance: 19600
   节点1
   节点2
   节点3
   ```
   - 使用section markers（# TIME, # DISTANCE, # BALANCED）分隔三种路径
-  - 每个section后紧跟两个指标值：time和distance
-  - 然后是节点名称，每行一个节点
-  - **空路径**：如果某种路径不存在，对应section下的time和distance值为0，没有节点行
+  - 每种路径按顺序列出节点名称，每行一个节点
+  - **空路径**：如果某种路径不存在，对应section下没有节点行（只有section marker）
 
 ## 重要约束
 
@@ -462,34 +406,21 @@ balanced_weight = α × normalized_time + (1-α) × normalized_distance
 
 ### 输出格式
 
-程序为每个地图查询输出三个路径及其指标，格式如下：
+程序为每个地图查询输出三个路径，格式如下：
 
 ```
-┌─ 时间最短 ──────────────────────────────────────────
+┌─ Time-Optimized Path (时间最短) ────────────────────
 │ Path: 起点 --> 中转1 --> 中转2 --> 终点
-│ Total Time: 1048.95 seconds
-│ Total Distance: 19710 meters
 └─────────────────────────────────────────────────────
 
-┌─ 距离最短 ──────────────────────────────────────────
+┌─ Distance-Optimized Path (距离最短) ────────────────
 │ Path: 起点 --> 中转A --> 中转B --> 终点
-│ Total Time: 1050.20 seconds
-│ Total Distance: 19500 meters
 └─────────────────────────────────────────────────────
 
-┌─ 综合推荐 ──────────────────────────────────────────
+┌─ Balanced Path (综合推荐) ──────────────────────────
 │ Path: 起点 --> 中转X --> 中转Y --> 终点
-│ Total Time: 1049.50 seconds
-│ Total Distance: 19600 meters
 └─────────────────────────────────────────────────────
 ```
 
-**设计原则**：
-- **所有路径都显示时间和距离**：方便用户全面对比三种路径的优劣
-- **标题简洁统一**：使用四字中文标题（"时间最短"、"距离最短"、"综合推荐"），确保边框整齐对齐
-- **代码复用**：`print_multi_paths()`内部调用`print_single_path()`三次，消除代码重复
-- 时间最短路径：通常时间最少，但距离可能较长
-- 距离最短路径：通常距离最短，但时间可能较长
-- 综合推荐路径：在时间和距离之间取得平衡
-- 即使三条路径完全相同，也会分别显示完整路径和指标
-- 指标值紧随路径显示，而不是在计算时输出
+即使三条路径完全相同，也会分别显示完整路径，方便用户对比。
+- to memorize
