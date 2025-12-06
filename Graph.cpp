@@ -213,18 +213,14 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
 {
     PathResult result;
 
-    // 检查起点和终点是否存在于图中
+    // 检查起点是否存在于图中（起点必须有出边）
     if (adj_list.find(start) == adj_list.end())
     {
         std::cerr << "Error: Start node '" << start << "' not found in graph." << std::endl;
         return result;
     }
 
-    if (adj_list.find(end) == adj_list.end())
-    {
-        std::cerr << "Error: End node '" << end << "' not found in graph." << std::endl;
-        return result;
-    }
+    // 注意：终点不需要检查，因为它可能只作为边的目标节点出现（没有出边）
 
     // 定义优先队列的元素类型: <距离, 节点名>
     using QElement = std::pair<double, std::string>;
@@ -275,6 +271,12 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
                 double edge_weight = edge.get_weight(mode);
                 double new_dist = current_dist + edge_weight;
 
+                // 如果邻居节点还没有在distances中，初始化为无穷大
+                if (distances.find(neighbor) == distances.end())
+                {
+                    distances[neighbor] = std::numeric_limits<double>::infinity();
+                }
+
                 if (new_dist < distances[neighbor])
                 {
                     // 更新最短距离和前驱节点
@@ -291,10 +293,18 @@ PathResult Graph::find_shortest_path(const std::string &start, const std::string
     // 路径回溯
     std::string current = end;
 
-    // 如果终点的距离仍然是无穷大，或者终点没有前驱（且非起点），说明不可达
-    if (distances[end] == std::numeric_limits<double>::infinity())
+    // 检查是否找到路径：
+    // 1. 如果终点就是起点，返回只包含起点的路径
+    // 2. 如果终点不是起点，但终点没有前驱节点，说明不可达
+    if (end == start)
     {
-        return result; // 返回空路径（cost=0, path为空）
+        result.path.push_back(start);
+        return result;
+    }
+
+    if (predecessors.find(end) == predecessors.end())
+    {
+        return result; // 返回空路径（终点不可达）
     }
 
     while (predecessors.count(current))
